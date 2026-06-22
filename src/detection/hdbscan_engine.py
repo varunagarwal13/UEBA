@@ -1,37 +1,40 @@
 """
-HDBSCAN-based peer deviation engine.
+HDBSCAN-based peer deviation engine -- v2, sliding K-event windows.
 
-Clusters (user, day) BEHAVIORAL SUMMARIES -- not individual events --
-in absolute feature space (not self-relative "surprise" like ECOD).
-The question this engine answers is "does this user's day look like
-anyone else's", not "is this unusual for THIS user" -- that's a
-genuinely different signal than ECOD provides, which is the point of
-having both engines.
+v1 clustered on whole-DAY summaries. Real evaluation against SPEDIA's
+campaign period showed this washed out single anomalous actions buried
+inside an otherwise-normal day: ROC-AUC collapsed to ~0.51-0.56 once
+identity-coded accounts were excluded from the test population, while
+ECOD (which scores point-wise, not day-aggregated) held at ~0.82. This
+version replaces day-level aggregation with a SLIDING window of the
+last WINDOW_SIZE events per user, recomputed at every score() call --
+a single unusual action only has to stand out against its immediate
+local context, not get averaged across an entire day.
 
-Streaming design: score() is called per-EVENT, but the underlying
-model reasons about whole DAYS. The engine keeps a running, in-memory
-accumulator per (user, date) that updates as events arrive, and scores
-the user's CURRENT, partial day against the fitted peer clusters via
-hdbscan.approximate_predict -- the standard way to score new points
-against an already-fit HDBSCAN model. GLOSH (outlier_scores_) only
-exists for the original training points, so approximate_predict's
-membership strength is the correct live equivalent, not a shortcut.
+Windows can span midnight (no artificial day-boundary splitting of a
+continuous burst) and naturally shrink during a user's cold-start
+period (fewer than WINDOW_SIZE events seen so far) -- both are
+intentional, not edge cases to special-case away.
 
-Design choices worth knowing:
-- PIVOT_ACCOUNTS are excluded from defining cluster centers (their
-  days would distort what "normal peer behavior" looks like) but are
-  still scored against the resulting clusters at inference time.
-- `variance` scales with (1 - membership_strength) -- a day that
-  confidently belongs to a cluster is trusted more than one sitting
-  ambiguously between clusters, or flagged as pure noise (label -1).
-- Like ECOD, `score` here is a reasonable 0-100 proxy, not yet the
-  final calibrated value -- formal calibration against labels happens
-  in a separate later step.
+Design choices carried over from v1, unchanged:
+- PIVOT_ACCOUNTS excluded from defining cluster centers, still scored
+  against the resulting clusters.
+- `variance` scales with (1 - membership_strength).
+- `score` is a 0-100 proxy via approximate_predict, not yet the final
+  calibrated value -- formal calibration against labels is a separate
+  later step.
+
+New in this version: `window_duration_seconds`, the real elapsed time
+covered by the window. This wasn't meaningful at day-granularity
+(every window was ~24h by definition) but at 10-event granularity it
+directly captures burstiness -- "10 events in 4 minutes" (likely an
+automated/scripted action) looks very different from "10 events
+spread across 6 hours" (normal human pacing), which is exactly the
+kind of signature an attack script tends to leave.
 """
 
-from collections import defaultdict
-from datetime import date
-from typing import Dict, List, Optional, Tuple
+from collections import defaultdict, deque
+from typing import Deque, Dict, List, Optional
 
 import hdbscan
 import numpy as np
@@ -41,88 +44,87 @@ from src.common.interfaces import DetectionEngine
 from src.common.schema import Event, EngineOutput
 from src.ingest.spedia import PIVOT_ACCOUNTS
 
-DAY_FEATURE_NAMES = (
-    "total_events", "command_exec_count", "file_op_count",
-    "http_count", "email_count", "usb_connect_count", "hour_spread",
-)
+DEFAULT_WINDOW_SIZE = 10  # events per window
+DEFAULT_TRAIN_STRIDE = 3  # step size for overlapping training windows
 
 
-def _empty_day_accumulator() -> dict:
-    return {
-        "total_events": 0,
-        "command_exec_count": 0,
-        "file_op_count": 0,
-        "http_count": 0,
-        "email_count": 0,
-        "usb_connect_count": 0,
-        "hours": [],
-    }
+def _window_to_vector(window: List[Event]) -> np.ndarray:
+    counts = {"command_exec": 0, "file_op": 0, "http": 0, "email_send": 0, "usb_connect": 0}
+    hours: List[int] = []
+    for e in window:
+        if e.event_type in counts:
+            counts[e.event_type] += 1
+        hours.append(e.timestamp.hour)
 
+    hour_spread = (max(hours) - min(hours)) if hours else 0
+    duration = (window[-1].timestamp - window[0].timestamp).total_seconds() if len(window) > 1 else 0.0
 
-def _update_accumulator(acc: dict, event: Event) -> None:
-    acc["total_events"] += 1
-    if event.event_type == "command_exec":
-        acc["command_exec_count"] += 1
-    elif event.event_type == "file_op":
-        acc["file_op_count"] += 1
-    elif event.event_type == "http":
-        acc["http_count"] += 1
-    elif event.event_type == "email_send":
-        acc["email_count"] += 1
-    elif event.event_type == "usb_connect":
-        acc["usb_connect_count"] += 1
-    acc["hours"].append(event.timestamp.hour)
-
-
-def _accumulator_to_vector(acc: dict) -> np.ndarray:
-    hour_spread = (max(acc["hours"]) - min(acc["hours"])) if acc["hours"] else 0
     return np.array(
         [
-            acc["total_events"],
-            acc["command_exec_count"],
-            acc["file_op_count"],
-            acc["http_count"],
-            acc["email_count"],
-            acc["usb_connect_count"],
+            len(window),
+            counts["command_exec"],
+            counts["file_op"],
+            counts["http"],
+            counts["email_send"],
+            counts["usb_connect"],
             hour_spread,
+            duration,
         ],
         dtype=float,
     )
 
 
-def _build_day_vectors(events: List[Event]) -> Dict[Tuple[str, date], np.ndarray]:
-    accumulators: Dict[Tuple[str, date], dict] = defaultdict(_empty_day_accumulator)
+def _build_training_windows(events: List[Event], window_size: int, stride: int) -> List[np.ndarray]:
+    """Per user, slide a window across their own chronological event
+    sequence (never mixing users within a window). Users with fewer
+    than window_size events contribute one partial window covering
+    their whole baseline history, rather than nothing."""
+    by_user: Dict[str, List[Event]] = defaultdict(list)
     for e in events:
-        key = (e.user_id, e.timestamp.date())
-        _update_accumulator(accumulators[key], e)
-    return {key: _accumulator_to_vector(acc) for key, acc in accumulators.items()}
+        by_user[e.user_id].append(e)
+
+    vectors = []
+    for user_events in by_user.values():
+        user_events = sorted(user_events, key=lambda e: e.timestamp)
+        if len(user_events) <= window_size:
+            vectors.append(_window_to_vector(user_events))
+            continue
+        for start in range(0, len(user_events) - window_size + 1, stride):
+            vectors.append(_window_to_vector(user_events[start : start + window_size]))
+    return vectors
 
 
 class HDBSCANEngine(DetectionEngine):
-    def __init__(self, min_cluster_size: int = 5) -> None:
+    def __init__(
+        self,
+        min_cluster_size: int = 5,
+        window_size: int = DEFAULT_WINDOW_SIZE,
+        train_stride: int = DEFAULT_TRAIN_STRIDE,
+    ) -> None:
         self.min_cluster_size = min_cluster_size
+        self.window_size = window_size
+        self.train_stride = train_stride
         self.scaler: Optional[StandardScaler] = None
         self.clusterer: Optional["hdbscan.HDBSCAN"] = None
-        # Live running accumulators per (user, date). Resetting these
-        # across separate evaluation runs (e.g. baseline vs. campaign
-        # period) is the caller's responsibility -- see reset_running().
-        self._running: Dict[Tuple[str, date], dict] = defaultdict(_empty_day_accumulator)
+        self._running: Dict[str, Deque[Event]] = defaultdict(lambda: deque(maxlen=self.window_size))
 
     def reset_running(self) -> None:
-        """Clear the live per-day accumulators. Call this between
+        """Clear the live per-user sliding windows. Call this between
         separate evaluation passes (e.g. before scoring the campaign
-        period) so yesterday's partial-day state doesn't bleed in."""
-        self._running = defaultdict(_empty_day_accumulator)
+        period) so baseline-period tail events don't bleed into the
+        first window scored."""
+        self._running = defaultdict(lambda: deque(maxlen=self.window_size))
 
     def fit(self, history: List[Event]) -> None:
-        day_vectors = _build_day_vectors([e for e in history if e.user_id not in PIVOT_ACCOUNTS])
-        if len(day_vectors) < self.min_cluster_size:
+        non_pivot = [e for e in history if e.user_id not in PIVOT_ACCOUNTS]
+        vectors = _build_training_windows(non_pivot, self.window_size, self.train_stride)
+        if len(vectors) < self.min_cluster_size:
             raise ValueError(
                 f"HDBSCANEngine.fit() needs at least {self.min_cluster_size} "
-                f"(user, day) windows, got {len(day_vectors)}"
+                f"training windows, got {len(vectors)}"
             )
 
-        X = np.vstack(list(day_vectors.values()))
+        X = np.vstack(vectors)
         self.scaler = StandardScaler()
         X_scaled = self.scaler.fit_transform(X)
 
@@ -133,9 +135,9 @@ class HDBSCANEngine(DetectionEngine):
         if self.clusterer is None or self.scaler is None:
             raise RuntimeError("HDBSCANEngine.score() called before fit()")
 
-        key = (user_id, event.timestamp.date())
-        _update_accumulator(self._running[key], event)
-        vector = _accumulator_to_vector(self._running[key]).reshape(1, -1)
+        self._running[user_id].append(event)
+        window = list(self._running[user_id])
+        vector = _window_to_vector(window).reshape(1, -1)
         vector_scaled = self.scaler.transform(vector)
 
         labels, strengths = hdbscan.approximate_predict(self.clusterer, vector_scaled)
@@ -145,10 +147,10 @@ class HDBSCANEngine(DetectionEngine):
         if label == -1:
             score = 100.0
             variance = 1.0
-            explanation = "Day-so-far doesn't match any peer cluster (noise)"
+            explanation = "Recent activity doesn't match any peer cluster (noise)"
         else:
             score = max(0.0, min(100.0, (1.0 - strength) * 100.0))
             variance = max(1.0 - strength, 0.01)
-            explanation = f"Peer-cluster membership strength {strength:.2f}"
+            explanation = f"Peer-cluster membership strength {strength:.2f} (last {len(window)} events)"
 
         return EngineOutput(score=score, variance=variance, explanation=explanation)

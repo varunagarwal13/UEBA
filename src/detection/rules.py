@@ -41,12 +41,21 @@ class Rule:
     precision: float  # measured precision from rule_mining.py -- drives variance
 
 
+def _safe_str(value: object) -> str:
+    """None and pandas NaN (a float) both mean 'no value' here, but
+    NaN is truthy in Python -- `value or ""` alone does NOT catch it,
+    which is exactly the bug this function exists to prevent."""
+    if value is None or isinstance(value, float):
+        return ""
+    return str(value)
+
+
 def _is_pivot_account(e: Event) -> bool:
     return e.user_id in PIVOT_ACCOUNTS
 
 
 def _description_highly_suspicious(e: Event) -> bool:
-    desc = (e.raw or {}).get("Description") or ""
+    desc = _safe_str((e.raw or {}).get("Description"))
     return "Highly Suspicious" in desc
 
 

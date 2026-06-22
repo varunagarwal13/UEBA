@@ -1,5 +1,11 @@
+import math
+from datetime import datetime
+
+from src.common.schema import Event
 from src.eval.rule_mining import (
     DEFAULT_CANDIDATES,
+    _description_any_suspicious,
+    _description_highly_suspicious,
     evaluate_all,
     evaluate_rule,
 )
@@ -63,3 +69,22 @@ def test_evaluate_all_returns_sorted_by_precision():
     assert list(df.columns) == ["name", "support", "precision", "recall"]
     # sorted descending -- first row's precision is the max across all candidates
     assert df.iloc[0]["precision"] >= df.iloc[-1]["precision"]
+
+
+def test_description_rules_survive_nan_description():
+    """Regression test: pandas NaN is a float and floats are truthy in
+    Python, so `value or ""` does NOT catch NaN the way it catches None.
+    ~86% of real SPEDIA rows have NaN Description -- this crashed on
+    the very first NaN row before the fix."""
+    nan_event = Event(
+        user_id="camilo", timestamp=datetime(2025, 3, 6), event_type="http",
+        action="x", raw={"Description": math.nan},
+    )
+    assert _description_highly_suspicious(nan_event) is False
+    assert _description_any_suspicious(nan_event) is False
+
+    none_event = Event(
+        user_id="camilo", timestamp=datetime(2025, 3, 6), event_type="http",
+        action="x", raw={},
+    )
+    assert _description_highly_suspicious(none_event) is False

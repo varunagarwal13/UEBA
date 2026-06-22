@@ -44,3 +44,24 @@ def test_engine_implements_detection_engine_interface():
     from src.common.interfaces import DetectionEngine
 
     assert issubclass(RuleEngine, DetectionEngine)
+
+
+def test_rule_engine_survives_nan_description():
+    """Regression test: most real SPEDIA rows have NaN (not None) in
+    Description, which is a float and therefore truthy -- 'value or ""'
+    doesn't catch it. This crashed on the real dataset before the fix
+    in _description_highly_suspicious."""
+    import math
+    from datetime import datetime
+
+    from src.common.schema import Event
+
+    engine = RuleEngine()
+    engine.fit([])  # rules are fixed thresholds, fit() is a no-op
+
+    nan_desc_event = Event(
+        user_id="camilo", timestamp=datetime(2025, 3, 6), event_type="http",
+        action="x", raw={"Description": math.nan, "Level": math.nan, "Command": math.nan},
+    )
+    result = engine.score("camilo", nan_desc_event)  # must not raise
+    assert result.score == 0.0
