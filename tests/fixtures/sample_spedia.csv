@@ -1,6 +1,0 @@
-id,Agent_name,User,Timestamp,Decoder_name,Description,Full_log,Content,Url,To,Cc,Bcc,From,Attachments,Size,Size_before,Size_after,Filename,Path,Command,Level,Activity,Action,Anomaly
-a1,host1,camilo,2025-03-06 13:15:10.797,auditd,Audit: Midly Suspicious Command executed: /bin/systemctl,full log text,,,,,,,,,,,,,systemctl,8.0,command,Command executed,0
-a2,host2,humberto,2025-03-06 13:14:35.211,pam,PAM: Login session opened.,full log text,,,,,,,,,,,,,,3.0,session,Login,0
-a3,host1,irene,2025-03-23 09:01:00.000,auditd,Audit: Highly Suspicious Command executed: /bin/bash,full log text,,,,,,,,,,,,,/bin/bash -c whoami,9.0,command,Command executed,1
-a4,host3,ubuntu,2025-03-23 09:02:00.000,auditd,Audit: privilege escalation,full log text,,,,,,,,,,,,/etc/shadow,cat /etc/shadow,9.0,command,Command executed,1
-a5,host1,camilo,2025-03-25 10:00:00.000,cert,CERT background email,full log text,,,bob@x.com,,,alice@x.com,,,,,,,,3.0,email,Email sent,0
