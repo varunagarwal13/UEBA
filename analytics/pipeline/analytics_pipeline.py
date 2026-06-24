@@ -1,37 +1,33 @@
 import uuid
 from datetime import datetime
-from typing import Dict, Any, List, Optional
-from collections import defaultdict, Counter
+from typing import Dict, Any, Optional
 
 from analytics.state_extraction.state_extractor import StateExtractor
 from analytics.ctmc.ctmc_scorer import CTMCScorer
 from analytics.rule_engine.rule_engine import RuleEngine
 from analytics.risk_scoring.risk_scorer import RiskScorer
 
-# Lowered from 40 to 5 based on threshold analysis.
-# At threshold=5: Precision=0.76, Recall=0.60, F1=0.67
-# At threshold=40: Precision=0.59, Recall=0.17, F1=0.26
-ALERT_THRESHOLD = 5.0
+ALERT_THRESHOLD    = 5.0
+MIN_SESSION_LENGTH = 3
 
 
 class AnalyticsPipeline:
 
     def __init__(self, population_matrix: Dict[str, Dict[str, float]]):
-        self.population_matrix    = population_matrix
-        self.user_matrices        = {}
-        self.user_session_counts  = {}
-
-        self.state_extractor = StateExtractor()
-        self.ctmc_scorer     = CTMCScorer()
-        self.rule_engine     = RuleEngine()
-        self.risk_scorer     = RiskScorer()
+        self.population_matrix   = population_matrix
+        self.user_matrices       = {}
+        self.user_session_counts = {}
+        self.state_extractor     = StateExtractor()
+        self.ctmc_scorer         = CTMCScorer()
+        self.rule_engine         = RuleEngine()
+        self.risk_scorer         = RiskScorer()
 
     def process_session(self, session: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         user_id    = session.get("user_id", "unknown")
         session_id = session.get("session_id", "unknown")
 
         states = self.state_extractor.extract_states(session)
-        if not states:
+        if len(states) < MIN_SESSION_LENGTH:
             return None
 
         matrix         = self.user_matrices.get(user_id, self.population_matrix)
@@ -39,7 +35,7 @@ class AnalyticsPipeline:
 
         ctmc_score = self.ctmc_scorer.score(states, matrix, total_sessions)
         violations = self.rule_engine.check_all_rules(
-            states, session.get("events", [])
+            states, session.get("events", []), user_id=user_id
         )
         result = self.risk_scorer.compute(
             user_id=user_id, session_id=session_id,
@@ -51,7 +47,6 @@ class AnalyticsPipeline:
             return None
 
         alert_id = f"ALT{str(uuid.uuid4())[:8].upper()}"
-
         return {
             "alert": {
                 "alert_id":       alert_id,
