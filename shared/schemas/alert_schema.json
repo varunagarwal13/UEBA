@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UEBA Alert",
+  "description": "Alert dict returned from Analytics pipeline to Backend",
+  "type": "object",
+  "required": ["alert", "explanation", "model_breakdown", "timeline"],
+  "properties": {
+    "alert": {
+      "type": "object",
+      "required": ["alert_id","user_id","risk_score","severity","confidence","timestamp"],
+      "properties": {
+        "alert_id":       { "type": "string" },
+        "user_id":        { "type": "string" },
+        "risk_score":     { "type": "number", "minimum": 0, "maximum": 100 },
+        "severity":       { "type": "string", "enum": ["Low","Medium","High","Critical"] },
+        "detection_type": { "type": "string" },
+        "confidence":     { "type": "number", "minimum": 0, "maximum": 1 },
+        "timestamp":      { "type": "string", "format": "date-time" }
+      }
+    },
+    "explanation": {
+      "type": "object",
+      "properties": {
+        "alert_id":            { "type": "string" },
+        "summary":             { "type": "string" },
+        "reasons":             { "type": "array", "items": { "type": "string" } },
+        "recommended_actions": { "type": "array", "items": { "type": "string" } },
+        "risk_context":        { "type": "string" },
+        "detection_methods":   { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "model_breakdown": {
+      "type": "object",
+      "properties": {
+        "ctmc_score":      { "type": "number" },
+        "rule_score":      { "type": "number" },
+        "if_score":        { "type": "number" },
+        "rule_violations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rule_id":   { "type": "string" },
+              "rule_name": { "type": "string" },
+              "severity":  { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "timeline": {
+      "type": "object",
+      "properties": {
+        "user_id":          { "type": "string" },
+        "timeline":         { "type": "array", "items": { "type": "string" } },
+        "timeline_compact": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

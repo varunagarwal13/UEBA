@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "UEBA Session",
+  "description": "Session dict sent from Backend to Analytics pipeline",
+  "type": "object",
+  "required": ["session_id", "user_id", "events"],
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "description": "Unique session identifier"
+    },
+    "user_id": {
+      "type": "string",
+      "description": "Username of the user this session belongs to"
+    },
+    "events": {
+      "type": "array",
+      "description": "Ordered list of events in this session",
+      "items": {
+        "type": "object",
+        "required": ["event_id", "user_id", "timestamp", "Activity", "Action"],
+        "properties": {
+          "event_id":     { "type": "string" },
+          "user_id":      { "type": "string" },
+          "timestamp":    { "type": "string", "format": "date-time" },
+          "Activity":     { "type": "string" },
+          "Action":       { "type": "string" },
+          "Level":        { "type": "number", "default": 0 },
+          "Command":      { "type": "string", "default": "" },
+          "file_path":    { "type": "string", "default": "" },
+          "Filename":     { "type": "string", "default": "" },
+          "bytes":        { "type": "number", "default": 0 },
+          "IsAfterHours": { "type": "integer", "enum": [0, 1] },
+          "IsWeekend":    { "type": "integer", "enum": [0, 1] },
+          "CTMC_State":   { "type": "string", "default": "" },
+          "Anomaly":      { "type": "integer", "enum": [0, 1] }
+        }
+      }
+    }
+  }
+}
