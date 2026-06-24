@@ -6,6 +6,7 @@ from analytics.state_extraction.state_extractor import StateExtractor
 from analytics.ctmc.ctmc_scorer import CTMCScorer
 from analytics.rule_engine.rule_engine import RuleEngine
 from analytics.risk_scoring.risk_scorer import RiskScorer
+from analytics.explainability.explainer import Explainer
 
 ALERT_THRESHOLD    = 5.0
 MIN_SESSION_LENGTH = 3
@@ -21,6 +22,7 @@ class AnalyticsPipeline:
         self.ctmc_scorer         = CTMCScorer()
         self.rule_engine         = RuleEngine()
         self.risk_scorer         = RiskScorer()
+        self.explainer           = Explainer()
 
     def process_session(self, session: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         user_id    = session.get("user_id", "unknown")
@@ -46,7 +48,19 @@ class AnalyticsPipeline:
         if result.risk_score < ALERT_THRESHOLD:
             return None
 
-        alert_id = f"ALT{str(uuid.uuid4())[:8].upper()}"
+        alert_id    = f"ALT{str(uuid.uuid4())[:8].upper()}"
+        explanation = self.explainer.explain(
+            alert_id       = alert_id,
+            user_id        = user_id,
+            state_sequence = states,
+            violations     = violations,
+            risk_score     = result.risk_score,
+            severity       = result.severity,
+            ctmc_score     = result.ctmc_score,
+            rule_score     = result.rule_score,
+            confidence     = result.confidence,
+        )
+
         return {
             "alert": {
                 "alert_id":       alert_id,
@@ -58,13 +72,12 @@ class AnalyticsPipeline:
                 "timestamp":      datetime.utcnow().isoformat() + "Z",
             },
             "explanation": {
-                "alert_id": alert_id,
-                "reasons":  [v.description for v in violations],
-                "summary": (
-                    f"User {user_id} triggered a {result.severity.lower()} "
-                    f"risk alert. CTMC={result.ctmc_score}, "
-                    f"Rules={result.rule_score}."
-                ),
+                "alert_id":          alert_id,
+                "summary":           explanation.summary,
+                "reasons":           explanation.reasons,
+                "recommended_actions": explanation.recommended_actions,
+                "risk_context":      explanation.risk_context,
+                "detection_methods": explanation.detection_methods,
             },
             "model_breakdown": {
                 "ctmc_score": result.ctmc_score,
@@ -77,7 +90,8 @@ class AnalyticsPipeline:
                 ],
             },
             "timeline": {
-                "user_id":  user_id,
-                "timeline": states,
+                "user_id":        user_id,
+                "timeline":       explanation.timeline,
+                "timeline_compact": explanation.timeline_compact,
             },
         }
