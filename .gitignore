@@ -1,0 +1,16 @@
+# Python cache & virtualenvs
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Node dependencies & Next.js cache
+node_modules/
+.next/

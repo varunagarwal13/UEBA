@@ -31,3 +31,33 @@ def update_alert_status(
         from fastapi import HTTPException
         raise HTTPException(404, f"Alert {alert_id} not found.")
     return alert
+
+@router.get("/{alert_id}")
+def get_alert_detail(alert_id: int, db: Session = Depends(get_db)):
+    """Fetch details of a single alert, parsing the JSON explanation if present."""
+    from app import models
+    import json
+    
+    alert = db.query(models.Alert).filter(models.Alert.alert_id == alert_id).first()
+    if not alert:
+        from fastapi import HTTPException
+        raise HTTPException(404, f"Alert {alert_id} not found.")
+    
+    parsed_explanation = None
+    if alert.explanation:
+        try:
+            parsed_explanation = json.loads(alert.explanation)
+        except Exception:
+            parsed_explanation = alert.explanation
+            
+    return {
+        "alert_id": alert.alert_id,
+        "user_id": alert.user_id,
+        "risk_score": alert.risk_score,
+        "severity": alert.severity,
+        "status": alert.status,
+        "rules_triggered": alert.rules_triggered,
+        "ctmc_log_prob": alert.ctmc_log_prob,
+        "created_at": alert.created_at,
+        "explanation": parsed_explanation
+    }
