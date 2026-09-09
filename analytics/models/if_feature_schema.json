@@ -1,0 +1,130 @@
+[
+    {
+        "name": "event_velocity",
+        "type": "float",
+        "source_raw_column": "Timestamp",
+        "derivation": "Number of events divided by total session duration in hours",
+        "allowed_range": "0 - 100000",
+        "available_online": true
+    },
+    {
+        "name": "distinct_ctmc_states",
+        "type": "integer",
+        "source_raw_column": "Activity, Action",
+        "derivation": "Unique count of CTMC transition states observed in session",
+        "allowed_range": "1 - 100",
+        "available_online": true
+    },
+    {
+        "name": "avg_time_between_events",
+        "type": "float",
+        "source_raw_column": "Timestamp",
+        "derivation": "Average delta seconds between sequential events",
+        "allowed_range": "0 - 86400",
+        "available_online": true
+    },
+    {
+        "name": "max_time_between_events",
+        "type": "float",
+        "source_raw_column": "Timestamp",
+        "derivation": "Maximum delta seconds between sequential events",
+        "allowed_range": "0 - 86400",
+        "available_online": true
+    },
+    {
+        "name": "file_access_count",
+        "type": "integer",
+        "source_raw_column": "Activity",
+        "derivation": "Count of events exactly matching File_Access",
+        "allowed_range": "0 - 100000",
+        "available_online": true
+    },
+    {
+        "name": "file_delete_count",
+        "type": "integer",
+        "source_raw_column": "Activity",
+        "derivation": "Count of events exactly matching File_Delete",
+        "allowed_range": "0 - 100000",
+        "available_online": true
+    },
+    {
+        "name": "file_modify_count",
+        "type": "integer",
+        "source_raw_column": "Activity",
+        "derivation": "Count of events exactly matching File_Modify",
+        "allowed_range": "0 - 100000",
+        "available_online": true
+    },
+    {
+        "name": "file_add_count",
+        "type": "integer",
+        "source_raw_column": "Activity",
+        "derivation": "Count of events exactly matching File_Add",
+        "allowed_range": "0 - 100000",
+        "available_online": true
+    },
+    {
+        "name": "auth_success_count",
+        "type": "integer",
+        "source_raw_column": "Activity",
+        "derivation": "Count of events exactly matching Login",
+        "allowed_range": "0 - 1000",
+        "available_online": true
+    },
+    {
+        "name": "auth_fail_count",
+        "type": "integer",
+        "source_raw_column": "Activity",
+        "derivation": "Count of events exactly matching Login_Failed",
+        "allowed_range": "0 - 1000",
+        "available_online": true
+    },
+    {
+        "name": "privilege_escalation_count",
+        "type": "integer",
+        "source_raw_column": "Activity",
+        "derivation": "Count of events exactly matching Privilege_Command",
+        "allowed_range": "0 - 1000",
+        "available_online": true
+    },
+    {
+        "name": "suspicious_cmd_count",
+        "type": "integer",
+        "source_raw_column": "Activity",
+        "derivation": "Count of events exactly matching Suspicious_Command",
+        "allowed_range": "0 - 1000",
+        "available_online": true
+    },
+    {
+        "name": "off_hours_event_ratio",
+        "type": "float",
+        "source_raw_column": "Timestamp",
+        "derivation": "Percentage of events occurring outside 07:00-20:00 window",
+        "allowed_range": "0.0 - 1.0",
+        "available_online": true
+    },
+    {
+        "name": "weekend_event_ratio",
+        "type": "float",
+        "source_raw_column": "Timestamp",
+        "derivation": "Percentage of events occurring on Saturday/Sunday",
+        "allowed_range": "0.0 - 1.0",
+        "available_online": true
+    },
+    {
+        "name": "burst_event_count",
+        "type": "integer",
+        "source_raw_column": "Timestamp",
+        "derivation": "Number of events firing with < 2s delta",
+        "allowed_range": "0 - 100000",
+        "available_online": true
+    },
+    {
+        "name": "distinct_action_types",
+        "type": "integer",
+        "source_raw_column": "Action",
+        "derivation": "Unique literal sub-actions extracted from raw event",
+        "allowed_range": "1 - 100",
+        "available_online": true
+    }
+]

@@ -128,3 +128,77 @@ class RiskProfile(Base):
     updated_at        = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     user = relationship("User", back_populates="risk_profile")
+
+class PersonalBehaviorProfile(Base):
+    """
+    V2.1: Advanced persistent behavioral profile tracking rigid temporal statistics 
+    without holding massive raw observation sequences in memory.
+    """
+    __tablename__ = "personal_behavior_profiles"
+
+    id                       = Column(Integer, primary_key=True, autoincrement=True)
+    user_id                  = Column(String, ForeignKey("users.user_id"), unique=True, index=True)
+    profile_version          = Column(Integer, default=1)
+    session_count            = Column(Integer, default=0)
+    first_seen               = Column(DateTime, server_default=func.now())
+    last_seen                = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    statistics_json          = Column(Text, nullable=True) # Serialized statistical distributions (mean, std, max, percentiles)
+    state_distribution_json  = Column(Text, nullable=True) # Normalized probabilities of CTMC state activations
+    action_distribution_json = Column(Text, nullable=True) # Normalized probabilities of action triggers
+    confidence               = Column(Float, default=0.0)  # Profile confidence derived via LEARNING maturity
+    updated_at               = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User")
+
+class AttackChain(Base):
+    """
+    V2.1: Temporal sequences of attack stages bounded by user and time windows.
+    """
+    __tablename__ = "attack_chains"
+
+    id             = Column(Integer, primary_key=True, autoincrement=True)
+    chain_id       = Column(String, unique=True, index=True)
+    user_id        = Column(String, ForeignKey("users.user_id"), index=True)
+    first_seen     = Column(DateTime)
+    last_seen      = Column(DateTime)
+    current_stage  = Column(String)
+    stages_json    = Column(Text) # JSON list
+    sessions_json  = Column(Text) # JSON list 
+    risk_score     = Column(Float, default=0.0)
+    confidence     = Column(Float, default=0.0)
+    status         = Column(String, default="OPEN") # OPEN, CLOSED
+    created_at     = Column(DateTime, server_default=func.now())
+
+    user = relationship("User")
+
+class InvestigationCase(Base):
+    """
+    V2.1: Analyzed correlation of clustered alerts structurally grouped for SOC analysts.
+    """
+    __tablename__ = "investigation_cases"
+
+    case_id        = Column(String, primary_key=True, index=True)
+    user_id        = Column(String, ForeignKey("users.user_id"), index=True)
+    status         = Column(String, default="OPEN") # OPEN, INVESTIGATING, RESOLVED
+    risk_score     = Column(Float, default=0.0)
+    severity       = Column(String, default="Low")
+    current_stage  = Column(String)
+    summary        = Column(Text)
+    created_at     = Column(DateTime, server_default=func.now())
+    updated_at     = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    user = relationship("User")
+    alerts = relationship("CaseAlert", back_populates="case")
+
+class CaseAlert(Base):
+    """
+    V2.1: Join table binding individual independent alerts into correlated Cases.
+    """
+    __tablename__ = "case_alerts"
+
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    case_id    = Column(String, ForeignKey("investigation_cases.case_id"))
+    alert_id   = Column(String)
+    created_at = Column(DateTime, server_default=func.now())
+    
+    case = relationship("InvestigationCase", back_populates="alerts")

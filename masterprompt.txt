@@ -1,0 +1,800 @@
+# UEBA V2 — BACKEND + MODEL + TEST FORENSIC AUDIT
+
+You are auditing the existing UEBA V2 repository.
+
+## CRITICAL INSTRUCTION
+
+DO NOT MODIFY ANY FILE.
+
+DO NOT CREATE ANY FILE.
+
+DO NOT FIX ANY BUG.
+
+DO NOT REFACTOR ANY CODE.
+
+DO NOT TRAIN ANY MODEL.
+
+DO NOT ASSUME SOMETHING IS IMPLEMENTED BECAUSE DOCUMENTATION CLAIMS IT IS.
+
+Your job is to inspect the ACTUAL repository and produce a precise implementation audit.
+
+The objective is to answer:
+
+> "What has actually been implemented in the backend, ML pipeline, model training/evaluation, tests, and analytics↔backend integration, and what is still missing?"
+
+---
+
+# 1. REPOSITORY INVENTORY
+
+Inspect the complete repository structure.
+
+Identify:
+
+* analytics/
+* backend/
+* shared/
+* tests/
+* data/
+* models/
+* scripts/
+* docs/
+* configuration files
+* requirements/dependencies
+* Docker files
+* environment/configuration files
+
+For every relevant component report:
+
+| Component | Exists? | Actually implemented? | Entry point | Status |
+| --------- | ------- | --------------------- | ----------- | ------ |
+
+Do NOT infer implementation from filenames alone.
+
+Inspect the source code.
+
+---
+
+# 2. BACKEND FORENSIC AUDIT
+
+Inspect the complete FastAPI backend.
+
+Determine:
+
+## Application
+
+* FastAPI initialization
+* application startup
+* shutdown
+* middleware
+* CORS
+* authentication
+* authorization/RBAC
+* exception handling
+* logging
+* configuration management
+
+## Routers
+
+Inspect every router.
+
+For each endpoint report:
+
+| Method | Endpoint | Purpose | Input | Output | DB interaction | Analytics interaction | Tested? |
+| ------ | -------- | ------- | ----- | ------ | -------------- | --------------------- | ------- |
+
+Specifically inspect:
+
+* `/logs/user`
+* `/logs/network`
+* `/alerts`
+* `/alerts/{id}/status`
+* `/risk`
+* `/analytics/results`
+* `/dashboard`
+* `/users`
+
+Also identify every additional endpoint that exists.
+
+---
+
+# 3. MOST IMPORTANT QUESTION — DOES BACKEND ACTUALLY RUN ANALYTICS?
+
+Trace the real execution path.
+
+Determine whether:
+
+RAW LOG
+→ backend ingestion
+→ sessionization
+→ feature extraction
+→ CTMC
+→ rule engine
+→ Isolation Forest
+→ personal baseline
+→ risk fusion
+→ explanation
+→ alert
+→ database
+
+actually happens in code.
+
+Do NOT describe the intended architecture.
+
+Trace actual function calls.
+
+Produce:
+
+### ACTUAL CURRENT WORKFLOW
+
+```text
+[actual step]
+      ↓
+[actual function]
+      ↓
+[actual function]
+      ↓
+[actual database/API operation]
+```
+
+For every arrow identify the source file and function.
+
+If a connection does NOT exist, explicitly show:
+
+`BROKEN / NOT CONNECTED`
+
+---
+
+# 4. ANALYTICS ↔ BACKEND INTEGRATION
+
+Inspect:
+
+* `analytics_pipeline.py`
+* `risk_scorer.py`
+* `feature_extractor.py`
+* `ctmc_scorer.py`
+* `rule_engine.py`
+* `explainer.py`
+* Isolation Forest code
+* personal baseline code
+* all backend analytics ingestion endpoints
+
+Determine:
+
+### A.
+
+Does backend ingestion automatically invoke analytics?
+
+### B.
+
+Or does analytics have to be run manually?
+
+### C.
+
+Does `/analytics/results` actually receive results from the analytics pipeline?
+
+### D.
+
+Is `/analytics/results` merely a storage endpoint?
+
+### E.
+
+Does the backend persist:
+
+* CTMC score
+* rule score
+* IF score
+* final risk score
+* severity
+* confidence
+* explanations
+* triggered rules
+* timeline
+
+?
+
+Show the exact code path.
+
+---
+
+# 5. DATABASE AUDIT
+
+Inspect SQLAlchemy models and database configuration.
+
+Identify:
+
+* User
+* Event
+* NetworkEvent
+* Alert
+* any additional tables
+
+For each table:
+
+| Table | Columns | Primary Key | Foreign Keys | Relationships | Used by API? |
+| ----- | ------- | ----------- | ------------ | ------------- | ------------ |
+
+Determine:
+
+* where DB sessions are created
+* transaction handling
+* commits/rollbacks
+* initialization/migrations
+* whether tables are actually created
+* whether analytics results are persisted
+* whether alert status changes are persisted
+
+Also identify any unused models or fields.
+
+---
+
+# 6. MODEL INVENTORY
+
+Inspect ALL ML/statistical models.
+
+For each model:
+
+| Model | File | Exists? | Training code? | Model artifact? | Inference code? | Used in production pipeline? |
+| ----- | ---- | ------- | -------------- | --------------- | --------------- | ---------------------------- |
+
+Specifically verify:
+
+### CTMC
+
+* transition matrix source
+* training/build process
+* population baseline
+* personal baseline
+* scoring
+
+### Isolation Forest
+
+Verify whether:
+
+`if_score`
+
+is actually calculated.
+
+Do NOT trust the existence of:
+
+`if_model.pkl`
+
+alone.
+
+Verify:
+
+* model training code
+* model loading
+* feature extraction
+* inference
+* score normalization
+* threshold
+* integration into RiskScorer
+* integration into AnalyticsPipeline
+* backend exposure
+
+### Personal baseline
+
+Determine whether it actually exists or is only planned.
+
+### Peer baseline
+
+Determine whether it actually exists.
+
+### Network analytics
+
+Determine whether it actually exists.
+
+---
+
+# 7. ISOLATION FOREST TRAINING AUDIT
+
+Inspect the actual training script.
+
+Determine:
+
+## Dataset
+
+Exactly which file is loaded?
+
+Expected candidate:
+
+`spedia_anomaly_detection/data/SPEDIA_preprocessed.csv`
+
+Report the actual path used by code.
+
+## Features
+
+Print/list the exact feature columns used for X.
+
+Explicitly verify that X does NOT contain:
+
+* Anomaly
+* Risk_Score
+* Risk_Label
+* Rules_Triggered
+* Rule_Count
+* Raw_Risk
+
+Also determine whether CTMC_State is used.
+
+## Split
+
+Verify whether the code actually performs:
+
+TRAIN:
+March 6–20
+
+VALIDATION:
+March 21–25
+
+TEST:
+March 26–30
+
+Do not assume this from documentation.
+
+## Training
+
+Verify actual:
+
+* n_estimators
+* contamination
+* random_state
+* max_samples
+* max_features
+* bootstrap
+
+## Artifact
+
+Determine:
+
+* where model is saved
+* whether the artifact exists
+* whether it can be loaded
+* whether feature ordering is stored
+* whether preprocessing configuration is stored
+
+---
+
+# 8. MODEL EVALUATION AUDIT
+
+Inspect all evaluation code.
+
+Determine whether the model is actually evaluated on an untouched chronological TEST set.
+
+Check whether the code computes:
+
+* Precision
+* Recall
+* F1
+* PR-AUC
+* ROC-AUC
+* FPR
+* confusion matrix
+* Precision@K
+* Recall@K
+
+Determine:
+
+* how session labels are generated
+* whether `Anomaly` is used only for evaluation
+* whether thresholds were tuned on validation or test
+* whether test data influenced training
+* whether test data influenced threshold selection
+
+Flag ANY violation.
+
+---
+
+# 9. SESSION LABEL AUDIT
+
+This is important.
+
+Determine exactly how event-level:
+
+`Anomaly`
+
+becomes a session-level target.
+
+Check whether implementation uses:
+
+`any anomaly → anomalous session`
+
+or:
+
+`anomaly ratio`
+
+or another method.
+
+Calculate/report the implemented logic.
+
+Do not change it.
+
+---
+
+# 10. LEAKAGE AUDIT
+
+Inspect the COMPLETE training pipeline.
+
+Create:
+
+| Data field | Used in training? | Used in evaluation? | Leakage risk | Verdict |
+| ---------- | ----------------: | ------------------: | ------------ | ------- |
+
+Specifically inspect:
+
+* Anomaly
+* Risk_Score
+* Risk_Label
+* Rules_Triggered
+* Rule_Count
+* Raw_Risk
+* CTMC_State
+
+Also detect indirect leakage.
+
+Examples:
+
+* future user history
+* test sessions used to construct baselines
+* normalization using test data
+* threshold tuning using test labels
+* random split across time
+* V1-generated features entering IF
+
+---
+
+# 11. TEST SUITE AUDIT
+
+Inspect ALL tests.
+
+Do not merely count test files.
+
+For every test determine:
+
+* what it tests
+* whether it actually executes
+* whether it passes
+* whether it is unit/integration/e2e
+* whether it tests real implementation or mocks everything
+
+Create:
+
+| Test | Type | Component | Executes? | Pass? | What does it prove? |
+| ---- | ---- | --------- | --------- | ----- | ------------------- |
+
+Specifically inspect:
+
+`tests/test_full_suite.py`
+
+and every other test.
+
+---
+
+# 12. ACTUALLY RUN TESTS
+
+You MAY execute existing tests for AUDIT PURPOSES ONLY.
+
+Do not modify anything.
+
+Run the safest existing test commands.
+
+Report:
+
+```text
+Total tests:
+Passed:
+Failed:
+Skipped:
+Errors:
+Warnings:
+Execution time:
+```
+
+For every failure provide:
+
+* test name
+* traceback summary
+* root cause
+* affected component
+
+DO NOT FIX THE FAILURES.
+
+---
+
+# 13. MODEL TESTS
+
+Determine whether there are tests for:
+
+### FeatureExtractor
+
+* missing fields
+* empty session
+* malformed timestamp
+* numerical conversion
+* zero values
+* extreme values
+
+### Isolation Forest
+
+* model loading
+* feature order
+* inference
+* score range
+* missing model artifact
+
+### CTMC
+
+* unknown states
+* empty sequence
+* transition probabilities
+* personal baseline
+* population baseline
+
+### Rule Engine
+
+* every rule
+* boundary conditions
+* false-positive cases
+
+### Risk Scorer
+
+* score fusion
+* weights
+* severity boundaries
+* confidence
+* agreement boost
+
+### Explainer
+
+* every detection source
+* no-risk case
+* high-risk case
+* missing fields
+
+Report missing test coverage.
+
+---
+
+# 14. BACKEND API TESTS
+
+Determine whether actual API tests exist for:
+
+* health
+* users
+* logs upload
+* network ingestion
+* alerts
+* alert status update
+* risk
+* dashboard
+* analytics result ingestion
+
+Also determine whether API tests use:
+
+* real DB
+* temporary DB
+* mocks
+* no DB
+
+---
+
+# 15. END-TO-END TEST
+
+Determine whether ANY test actually verifies:
+
+```text
+CSV/raw event
+   ↓
+sessionization
+   ↓
+feature extraction
+   ↓
+CTMC
+   ↓
+rules
+   ↓
+Isolation Forest
+   ↓
+risk fusion
+   ↓
+explainer
+   ↓
+backend
+   ↓
+database
+   ↓
+GET /alerts
+```
+
+If none exists, explicitly state:
+
+`NO TRUE END-TO-END TEST EXISTS`
+
+Do not consider isolated unit tests equivalent.
+
+---
+
+# 16. CURRENT WORKING STATE
+
+At the end provide a simple status dashboard:
+
+| Capability                    | Status |
+| ----------------------------- | ------ |
+| Dataset loading               | ✅/⚠️/❌ |
+| Sessionization                | ✅/⚠️/❌ |
+| Feature extraction            | ✅/⚠️/❌ |
+| CTMC                          | ✅/⚠️/❌ |
+| Rule engine                   | ✅/⚠️/❌ |
+| Isolation Forest training     | ✅/⚠️/❌ |
+| Isolation Forest inference    | ✅/⚠️/❌ |
+| Personal baseline             | ✅/⚠️/❌ |
+| Peer baseline                 | ✅/⚠️/❌ |
+| Risk fusion                   | ✅/⚠️/❌ |
+| Explainability                | ✅/⚠️/❌ |
+| Backend ingestion             | ✅/⚠️/❌ |
+| Analytics↔backend integration | ✅/⚠️/❌ |
+| Database persistence          | ✅/⚠️/❌ |
+| API tests                     | ✅/⚠️/❌ |
+| ML tests                      | ✅/⚠️/❌ |
+| End-to-end test               | ✅/⚠️/❌ |
+| Production readiness          | ✅/⚠️/❌ |
+
+Use:
+
+✅ = actually implemented and verified
+
+⚠️ = partially implemented / uncertain / insufficient tests
+
+❌ = absent
+
+---
+
+# 17. MOST IMPORTANT: ACTUAL WORKFLOW VS DOCUMENTED WORKFLOW
+
+Produce TWO diagrams.
+
+## DOCUMENTED / INTENDED WORKFLOW
+
+Based on the project documentation.
+
+## ACTUAL CODE WORKFLOW
+
+Based strictly on function calls found in the repository.
+
+Then explicitly identify every difference.
+
+Example:
+
+```text
+INTENDED:
+
+CSV
+ ↓
+Analytics
+ ↓
+IF
+ ↓
+Risk
+ ↓
+Backend
+ ↓
+DB
+
+
+ACTUAL:
+
+CSV
+ ↓
+Backend
+ ↓
+DB
+```
+
+If this is the situation, say so clearly.
+
+---
+
+# 18. FINAL REPORT
+
+Your final response MUST contain these sections:
+
+## A. Executive Summary
+
+Maximum 10 bullet points.
+
+## B. Actual Architecture
+
+Show the real implementation flow.
+
+## C. Backend Audit
+
+Detailed findings.
+
+## D. Analytics/ML Audit
+
+Detailed findings.
+
+## E. Isolation Forest Audit
+
+Training + inference + artifact status.
+
+## F. Leakage Audit
+
+Any leakage or methodological issues.
+
+## G. Test Results
+
+Actual executed results.
+
+## H. Test Coverage Gaps
+
+What is not tested.
+
+## I. Backend↔Analytics Integration Gaps
+
+Exact missing connections.
+
+## J. Model Evaluation Gaps
+
+What prevents us from credibly claiming V2 improves V1.
+
+## K. Critical Issues
+
+Rank:
+
+P0 = blocks correct operation
+
+P1 = major issue
+
+P2 = improvement
+
+## L. Actual End-to-End Workflow
+
+One clean diagram.
+
+## M. Recommended Next Steps
+
+ONLY recommendations.
+
+Do not implement them.
+
+---
+
+# FINAL CONSTRAINT
+
+This is an AUDIT.
+
+Do not change the repository.
+
+Do not "fix" anything.
+
+Do not create new models.
+
+Do not retrain models.
+
+Do not silently correct documentation.
+
+Report what the CODE ACTUALLY DOES.
+
+When documentation and code disagree:
+
+CODE WINS.
+
+When tests and documentation disagree:
+
+ACTUAL TEST RESULT WINS.
+
+When an artifact exists but cannot be loaded or is not integrated:
+
+mark it as `PARTIAL`, not `IMPLEMENTED`.
+
+The final objective is to give the ML lead a completely accurate picture of:
+
+1. what works,
+2. what was actually tested,
+3. what model was actually trained,
+4. what data was actually used,
+5. what the backend actually does,
+6. whether analytics actually reaches the backend,
+7. whether V2 can currently be trusted,
+8. and exactly what remains to be built.

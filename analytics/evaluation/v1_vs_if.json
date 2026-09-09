@@ -1,0 +1,8 @@
+{
+  "test_sessions": 217,
+  "both_detected": 0,
+  "v1_missed_if_detected": 105,
+  "if_missed_v1_detected": 0,
+  "neither_detected": 112,
+  "if_only_anomaly_rate": 0.819047619047619
+}

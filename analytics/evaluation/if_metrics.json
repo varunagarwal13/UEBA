@@ -1,0 +1,26 @@
+{
+  "train_sessions": 268,
+  "validation_sessions": 142,
+  "test_sessions": 217,
+  "anomaly_prevalence": 0.8018433179723502,
+  "roc_auc": 0.5073509756749532,
+  "pr_auc": 0.812814825781113,
+  "precision": 0.819047619047619,
+  "recall": 0.4942528735632184,
+  "f1": 0.6164874551971327,
+  "fpr": 0.4418604651162791,
+  "confusion_matrix": {
+    "TN": 24,
+    "FP": 19,
+    "FN": 88,
+    "TP": 86
+  },
+  "average_precision": 0.812814825781113,
+  "threshold_used": -0.14639176290320471,
+  "Precision@10": 0.9,
+  "Recall@10": 0.05172413793103448,
+  "Precision@25": 0.84,
+  "Recall@25": 0.1206896551724138,
+  "Precision@50": 0.76,
+  "Recall@50": 0.21839080459770116
+}

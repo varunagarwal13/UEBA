@@ -13,6 +13,28 @@ from app import models, schemas
 from datetime import datetime
 from typing import List, Optional
 import pandas as pd
+import json
+
+# ── Baselines ─────────────────────────────────────────────────────────────────
+def load_personal_baseline(db: Session, user_id: str):
+    pb = db.query(models.PersonalBehaviorProfile).filter(models.PersonalBehaviorProfile.user_id == user_id).first()
+    return pb
+
+def save_personal_baseline(db: Session, user_id: str, new_pb):
+    get_or_create_user(db, user_id)
+    pb = db.query(models.PersonalBehaviorProfile).filter(models.PersonalBehaviorProfile.user_id == user_id).first()
+    
+    if pb:
+        pb.statistics_json = new_pb.statistics_json
+        pb.state_distribution_json = new_pb.state_distribution_json
+        pb.action_distribution_json = new_pb.action_distribution_json
+        pb.session_count = new_pb.session_count
+        pb.confidence = new_pb.confidence
+        pb.profile_version += 1
+    else:
+        new_pb.user_id = user_id
+        db.add(new_pb)
+    db.commit()
 
 
 # ── Users ─────────────────────────────────────────────────────────────────────

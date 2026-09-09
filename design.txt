@@ -1,0 +1,1531 @@
+ANTIGRAVITY MASTER PROMPT — UEBA V2.1 SOC COMMAND CENTER REDESIGN
+
+You are redesigning the existing UEBA V2.1 frontend into a professional, highly interactive Security Operations Center (SOC) / User and Entity Behavior Analytics investigation console.
+
+The current frontend is functional but visually resembles a generic CRUD/admin dashboard. Do NOT simply polish the existing cards and tables. Re-architect the frontend information hierarchy and interaction model.
+
+The attached reference image is the visual inspiration.
+
+The goal is:
+
+“A real SOC analyst workstation for investigating behavioral anomalies, attack chains and investigation cases.”
+
+It must look like a serious cybersecurity analytics product—not a template, SaaS landing page, AI-generated dashboard, or collection of decorative cards.
+IMPORTANT ARCHITECTURAL CORRECTION
+
+Do NOT blindly implement the previous plan's assumption that Attack Chains,
+Investigations, Welford, CTMC, or Rule Engine are UNAVAILABLE.
+
+The backend V2.1 verification establishes that these components exist and are
+implemented:
+
+- PersonalBehaviorProfile
+- BehavioralProfileState
+- ProfileBuilder
+- ProfileComparator
+- AttackChain
+- AttackChainEngine
+- InvestigationCase
+- CaseAlert
+- CaseEngine
+- RiskScorer
+- CTMC
+- Rule Engine
+- Explainer
+
+Therefore the frontend must perform a REAL capability/API audit before deciding
+what is visible.
+
+STEP 1 — INSPECT BACKEND
+
+Inspect:
+
+backend/app/
+analytics/
+routers/
+models.py
+crud.py
+schemas/
+API routes
+database queries
+
+Identify exactly which V2.1 data is currently exposed through HTTP APIs.
+
+Create an internal mapping:
+
+BACKEND OBJECT
+→ DATABASE TABLE
+→ CRUD FUNCTION
+→ API ENDPOINT
+→ RESPONSE SCHEMA
+→ FRONTEND COMPONENT
+
+Do not assume a component is unavailable merely because there is no obvious
+dedicated endpoint.
+
+STEP 2 — PRESERVE REAL V2.1 CAPABILITIES
+
+If AttackChain data is retrievable:
+→ build the interactive Attack Chain workspace.
+
+If InvestigationCase data is retrievable:
+→ build the Investigation workspace.
+
+If PersonalBehaviorProfile data is retrievable:
+→ build the Behavioral Profile workspace.
+
+If CTMC evidence is retrievable:
+→ expose it as sequence/transition evidence.
+
+If Rule Engine evidence is retrievable:
+→ expose triggered rules as evidence.
+
+If a capability exists in the backend but has no API exposure:
+→ DO NOT invent frontend data.
+→ Mark it as "API NOT EXPOSED".
+→ Report the missing API contract separately.
+
+Do NOT label the underlying backend capability "UNAVAILABLE" when the real
+problem is simply "NOT EXPOSED BY API".
+
+STEP 3 — DO NOT FABRICATE TELEMETRY
+
+Absolutely forbidden:
+
+fake users
+fake alerts
+fake attack chains
+fake timestamps
+fake risk values
+fake CTMC transitions
+fake behavioral scores
+fake network telemetry
+fake charts
+
+Every displayed value must have a traceable source.
+
+STEP 4 — DESIGN THE FRONTEND AROUND THE ACTUAL V2.1 PIPELINE
+
+The UI should communicate:
+
+RAW TELEMETRY
+      ↓
+SESSION
+      ↓
+FEATURES
+      ↓
+ISOLATION FOREST
+      ↓
+RULES
+      ↓
+BEHAVIORAL PROFILE
+      ↓
+CTMC
+      ↓
+ATTACK STAGE
+      ↓
+ATTACK CHAIN
+      ↓
+RISK FUSION
+      ↓
+INVESTIGATION CASE
+      ↓
+EXPLANATION
+      ↓
+DATABASE
+
+The analyst must be able to drill through these layers.
+
+STEP 5 — COMMAND CENTER
+
+The Overview must answer within approximately 5 seconds:
+
+1. Is the environment healthy?
+2. What is currently risky?
+3. Which users/entities require attention?
+4. What attacks/behavioral patterns are occurring?
+5. Which investigation should the analyst open first?
+
+Do not make the Overview simply:
+
+4 KPI cards
++
+large empty space
++
+one table.
+
+Use the reference SOC interface as inspiration for information density and
+visual composition.
+
+STEP 6 — INVESTIGATION-FIRST INTERACTION
+
+A typical interaction should work like:
+
+Command Center
+→ high-risk entity
+→ investigation
+→ alert
+→ evidence
+→ attack stage
+→ attack chain
+→ behavioral profile
+→ explanation
+
+The analyst should be able to follow the reasoning behind a risk score.
+
+STEP 7 — ATTACK CHAIN
+
+If actual AttackChain data is available, DO NOT use an empty state.
+
+Build a visual timeline/graph such as:
+
+LOGIN
+  ↓
+STAGING
+  ↓
+PRIVILEGE ESCALATION
+  ↓
+EXFILTRATION
+
+Each node must be backed by actual records.
+
+Allow:
+
+hover
+selection
+timeline inspection
+related alert inspection
+case inspection
+
+Do not create nodes that do not exist in backend data.
+
+STEP 8 — INVESTIGATION CASE
+
+If InvestigationCase records are available, create an actual investigation
+workspace.
+
+Show:
+
+case ID
+entity/user
+risk
+severity
+status
+created time
+last activity
+related alerts
+attack chain
+evidence
+explanation
+
+The investigation page should feel like a SOC analyst workspace rather than
+a CRUD details page.
+
+STEP 9 — BEHAVIORAL PROFILE
+
+If PersonalBehaviorProfile is exposed, visualize real deviations.
+
+Example:
+
+FILE ACCESS
+Baseline
+Current
+Deviation
+
+AUTHENTICATION
+Baseline
+Current
+Deviation
+
+OFF-HOURS ACTIVITY
+Baseline
+Current
+Deviation
+
+Do not invent values.
+
+STEP 10 — SYSTEM HEALTH
+
+Separate:
+
+HEALTH STATUS
+from
+ANALYTICS CAPABILITY.
+
+For example:
+
+ISOLATION FOREST
+● READY
+
+API
+● ONLINE
+
+DATABASE
+● ONLINE
+
+ATTACK CHAIN API
+● EXPOSED
+
+CTMC API
+● NOT EXPOSED
+
+This is much more accurate than calling CTMC itself UNAVAILABLE.
+
+STEP 11 — NETWORK ANALYTICS
+
+Respect the existing V2.1 limitation.
+
+SPEDIA does not provide true packet-level telemetry.
+
+Therefore:
+
+NETWORK ANALYTICS
+UNAVAILABLE
+
+Reason:
+
+"Packet-level telemetry is not present in the SPEDIA dataset."
+
+This is an honest limitation and should actually increase credibility.
+
+STEP 12 — VISUAL DESIGN
+
+Use:
+
+near-black background
+thin borders
+compact typography
+technical monospace values
+restrained semantic colors
+dense grid
+subtle hover states
+data visualization
+contextual drawers
+interactive timelines
+graph relationships
+
+Avoid:
+
+generic SaaS cards
+excessive rounded corners
+glassmorphism
+huge empty spaces
+random gradients
+neon everywhere
+decorative animations
+fake futuristic graphics
+
+The interface should feel like a professional SOC console.
+
+STEP 13 — ANIMATION
+
+Use Kowalski principles.
+
+Animation should communicate:
+
+state
+transition
+causality
+selection
+arrival
+expansion
+drilldown
+
+Never animate just for visual decoration.
+
+STEP 14 — API GAP REPORT
+
+Before declaring the frontend complete, produce:
+
+FRONTEND DATA CONTRACT AUDIT
+
+For every desired component:
+
+Component | Backend exists | API exists | Data available | UI implemented
+
+Example:
+
+Attack Chains | YES | YES | YES | YES
+Investigations | YES | YES | YES | YES
+Behavior Profile | YES | NO | DB YES | API GAP
+Network | LIMITED | NO | NO | UNAVAILABLE
+
+This prevents the frontend from hiding backend functionality or fabricating
+missing data.
+
+STEP 15 — BROWSER VALIDATION
+
+Open the actual application.
+
+Test every major workflow.
+
+Do not stop when npm build succeeds.
+
+Verify:
+
+navigation
+API loading
+empty states
+errors
+filters
+search
+drawers
+attack-chain interactions
+investigation drilldowns
+responsive behavior
+loading states
+system health
+real data rendering
+
+Then visually compare the result against the supplied SOC reference.
+
+The final result must feel like an operational security investigation console,
+not a template dashboard.
+
+FINAL RULE:
+
+NEVER SACRIFICE DATA TRUTH FOR VISUAL APPEARANCE.
+
+If data exists → visualize it beautifully.
+
+If the API exposes it → make it interactive.
+
+If the backend supports it but API does not expose it → report the API gap.
+
+If the underlying capability genuinely does not exist → show UNAVAILABLE.
+
+NEVER fabricate data merely to make the UI look impressive.
+0. NON-NEGOTIABLE RULE
+
+FIRST inspect the entire existing frontend and backend contracts before changing code.
+
+Understand:
+
+existing frontend framework
+routing
+components
+API client
+API endpoints
+response schemas
+current dashboard data
+alerts
+users
+investigation cases
+attack chains
+risk scores
+behavioral profiles
+system health
+network availability
+loading/error states
+
+Do NOT invent backend data.
+
+Do NOT fabricate metrics.
+
+Do NOT replace real API values with hardcoded demo numbers.
+
+If an API does not provide a value, represent it explicitly as:
+
+UNAVAILABLE
+
+or:
+
+NO DATA
+
+rather than inventing a number.
+
+1. USE THE DESIGN/IMPLEMENTATION SKILLS IN THIS ORDER
+
+If the following skills/tools are available in Antigravity, use them deliberately:
+
+TaskSkill
+
+Use it first to break the frontend redesign into implementation tasks.
+
+Create a plan covering:
+
+frontend audit
+information architecture
+visual system
+overview command center
+alert investigation
+investigation cases
+attack-chain visualization
+user behavioral profile
+system health
+interaction/animation
+responsive behavior
+API integration
+browser validation
+visual refinement
+
+Do not start coding before understanding the existing architecture.
+
+Impeccable
+
+Use Impeccable for:
+
+visual hierarchy
+typography
+spacing
+layout
+density
+color semantics
+component consistency
+dashboard composition
+information prioritization
+Kowalski / animation skill
+
+Use it for:
+
+meaningful transitions
+alert state changes
+attack-chain progression
+panel expansion
+graph interactions
+hover/focus states
+live telemetry changes
+page transitions
+
+Animation must communicate state or causality.
+
+Do NOT add random animated backgrounds or decorative motion.
+
+Browser / Antigravity agent
+
+After implementation:
+
+open the application in the browser and inspect it visually.
+
+Do not assume the implementation is correct because it compiles.
+
+Take the role of a senior SOC product designer reviewing the actual browser output.
+
+Iteratively fix:
+
+excessive empty space
+weak hierarchy
+poor density
+alignment
+unreadable charts
+unnecessary cards
+awkward scrolling
+weak interaction
+generic component styling
+inconsistent spacing
+visual noise
+
+Repeat until the interface looks intentionally designed.
+
+2. CORE DESIGN DIRECTION
+
+Use the supplied reference image as the design language reference, not as something to copy literally.
+
+Target characteristics:
+
+dark SOC command-center interface
+high information density
+strong visual hierarchy
+telemetry-driven layout
+subtle grid structures
+thin borders
+restrained glow
+compact controls
+data visualization
+interactive investigation surfaces
+contextual panels
+command-center feeling
+professional cybersecurity aesthetic
+
+Avoid:
+
+generic SaaS dashboard
+giant rounded cards
+excessive gradients
+glassmorphism everywhere
+huge empty areas
+excessive purple/blue neon
+stock illustrations
+meaningless AI graphics
+decorative 3D objects
+giant headings
+dashboard-template appearance
+3. COLOR SYSTEM
+
+Use a restrained dark security-console palette.
+
+Base:
+
+near-black background
+slightly lighter navigation/panel surfaces
+subtle borders
+high-contrast white/gray typography
+
+Semantic colors:
+
+Critical
+
+Red
+
+High
+
+Orange/red
+
+Medium
+
+Amber
+
+Low
+
+Blue/cyan
+
+Normal / Healthy
+
+Green
+
+Unavailable
+
+Muted gray
+
+Do NOT use semantic colors as decoration.
+
+For example:
+
+A red color should mean:
+
+“Something requires attention.”
+
+not:
+
+“This card looks cool.”
+
+4. INFORMATION ARCHITECTURE
+
+Redesign the application around the following SOC workflow:
+
+OVERVIEW
+   ↓
+DETECT
+   ↓
+INVESTIGATE
+   ↓
+UNDERSTAND BEHAVIOR
+   ↓
+TRACE ATTACK CHAIN
+   ↓
+ASSESS RISK
+   ↓
+RESPOND
+
+Primary navigation:
+
+Command Center
+Alerts
+Investigations
+Attack Chains
+Users
+System Health
+
+Keep navigation compact.
+
+The active navigation item must be visually obvious but subtle.
+
+5. COMMAND CENTER — MAJOR REDESIGN
+
+The Overview page should become a SOC command center, not a collection of KPI cards.
+
+Use a layout inspired by the reference.
+
+Suggested structure:
+
+┌──────────────────────────────────────────────────────────────┐
+│ UEBA V2.1     LIVE SOC                     SYSTEM STATUS     │
+├───────────────┬──────────────────────────────────────────────┤
+│               │                                              │
+│ TELEMETRY     │       RISK / ACTIVITY VISUALIZATION          │
+│ SUMMARY       │                                              │
+│               │                                              │
+├───────────────┤                                              │
+│ ALERT         │                                              │
+│ INTENSITY     │                                              │
+│               │                                              │
+├───────────────┴──────────────────────────────────────────────┤
+│                                                              │
+│              HIGHEST RISK ENTITIES                            │
+│                                                              │
+├───────────────────────────────┬──────────────────────────────┤
+│ ACTIVE INVESTIGATIONS         │ ATTACK CHAIN ACTIVITY        │
+│                               │                              │
+└───────────────────────────────┴──────────────────────────────┘
+
+Do not copy this exact layout blindly.
+
+Compose the page based on actual available backend data.
+
+6. TOP SYSTEM BAR
+
+Create a compact SOC header.
+
+Example:
+
+UEBA V2.1 // SOC
+
+LIVE
+Telemetry
+Investigations
+Model
+
+Show:
+
+system health
+API connectivity
+analytics pipeline status
+model status
+current time
+optionally refresh status
+
+Example:
+
+● API ONLINE
+● IF MODEL READY
+● ANALYTICS ONLINE
+
+These must reflect actual backend state.
+
+7. GLOBAL TELEMETRY AREA
+
+Instead of only showing:
+
+1
+0
+0
+
+create meaningful telemetry visualization.
+
+Possible real metrics:
+
+monitored users
+active alerts
+critical alerts
+open investigations
+attack chains
+telemetry events
+highest risk score
+model availability
+
+Use compact visualizations where appropriate.
+
+For example:
+
+ALERT ACTIVITY
+
+▁▂▁▃▂▅▃▇▆▃▅▇
+
+or a proper chart.
+
+Use Recharts / ECharts / another existing charting library if already installed.
+
+Do not add a huge chart simply because charts look impressive.
+
+8. RISK LANDSCAPE
+
+Create a visually important central investigation visualization.
+
+Depending on the actual backend data, choose the most meaningful visualization:
+
+Option A
+
+Risk timeline
+
+Option B
+
+User/entity risk distribution
+
+Option C
+
+Attack-chain relationship graph
+
+Option D
+
+Alert activity matrix
+
+Option E
+
+Risk heatmap
+
+The visualization should allow the analyst to interact with the data.
+
+Examples:
+
+hover → show exact value
+click → open entity
+click alert → open investigation
+zoom
+filter
+time range
+severity filtering
+
+This area should become one of the visual focal points of the application.
+
+9. HIGH-RISK ENTITY PANEL
+
+Replace the current boring table with an investigation-oriented component.
+
+Example:
+
+HIGHEST RISK ENTITIES
+
+┌─────────────────────────────────────────────────────────────┐
+│ user_42                                      RISK 94         │
+│ EXFILTRATION → STAGING → PRIVILEGE ESCALATION              │
+│ 12 alerts · 3 chains · last seen 02:31 UTC                 │
+├─────────────────────────────────────────────────────────────┤
+│ user_17                                      RISK 81         │
+│ OFF-HOURS ACTIVITY                                          │
+└─────────────────────────────────────────────────────────────┘
+
+Each entity should be clickable.
+
+Clicking should open a detailed investigation surface.
+
+10. ALERTS PAGE
+
+This should feel like an analyst alert queue.
+
+Include:
+
+severity
+risk score
+user/entity
+timestamp
+detection phase
+rule
+model evidence
+investigation status
+
+Use filtering:
+
+Severity
+Risk
+User
+Detection type
+Time range
+Status
+
+Add search.
+
+Add sorting.
+
+Add keyboard-friendly navigation where practical.
+
+Clicking an alert should NOT simply navigate to another generic page.
+
+Open a detailed investigation drawer/page containing:
+
+ALERT
+──────────────
+
+Risk Score
+
+Detection
+
+Evidence
+
+Behavioral deviation
+
+Isolation Forest contribution
+
+Rule contribution
+
+CTMC contribution
+
+Attack stage
+
+Related alerts
+
+Related investigation
+
+Attack chain
+11. INVESTIGATION VIEW
+
+This is extremely important.
+
+Create a proper investigation workspace.
+
+The analyst should be able to understand:
+
+WHO
+WHAT
+WHEN
+WHY
+HOW
+
+Layout:
+
+┌──────────────────────────────────────────────────────────────┐
+│ INVESTIGATION #1024                        HIGH RISK          │
+├───────────────────┬──────────────────────────────────────────┤
+│ ENTITY            │ TIMELINE                                 │
+│                   │                                          │
+│ user@example      │ ● LOGIN                                  │
+│                   │      ↓                                   │
+│ Risk: 94          │ ● STAGING                                │
+│                   │      ↓                                   │
+│                   │ ● EXFILTRATION                            │
+├───────────────────┼──────────────────────────────────────────┤
+│ EVIDENCE          │ RELATED ALERTS                            │
+│                   │                                          │
+│ IF: 87            │ ...                                      │
+│ Rules: 100        │ ...                                      │
+│ CTMC: 72          │ ...                                      │
+│ Baseline: 81      │ ...                                      │
+└───────────────────┴──────────────────────────────────────────┘
+
+Use actual V2.1 concepts.
+
+12. ATTACK CHAIN VISUALIZATION
+
+This is one of the most important differentiators of the product.
+
+Do NOT represent attack chains as a boring table.
+
+Create an interactive visual chain:
+
+LOGIN
+  │
+  ▼
+STAGING
+  │
+  ▼
+PRIVILEGE ESCALATION
+  │
+  ▼
+EXFILTRATION
+
+Nodes should contain:
+
+attack stage
+timestamp
+risk
+evidence count
+related alerts
+
+The chain must communicate temporal causality.
+
+Allow:
+
+hover
+node selection
+stage expansion
+related alert inspection
+timeline inspection
+
+If the backend indicates a broken/unavailable model, show that honestly.
+
+13. USER BEHAVIOR PROFILE
+
+Create a proper behavioral analytics view.
+
+Show:
+
+USER
+
+Risk Profile
+────────────
+
+Normal behavior
+Current behavior
+Deviation
+Confidence
+
+Activity timeline
+
+Behavioral dimensions
+
+Authentication
+File access
+File modification
+Privilege activity
+Command activity
+Off-hours activity
+Weekend activity
+
+For Welford-based profiling, visualize deviations where actual profile data exists.
+
+Example:
+
+FILE ACCESS
+Normal       ███████
+Current      █████████████
+Deviation    +2.8σ
+
+Do not invent values.
+
+If the backend does not provide a metric:
+
+UNAVAILABLE
+14. SYSTEM HEALTH
+
+Build a technical observability page.
+
+Show:
+
+API
+DATABASE
+ISOLATION FOREST
+CTMC
+BEHAVIORAL PROFILING
+RULE ENGINE
+ATTACK CHAIN ENGINE
+CASE ENGINE
+
+Each should have:
+
+ONLINE
+DEGRADED
+UNAVAILABLE
+ERROR
+
+with appropriate semantic colors.
+
+Include:
+
+last update
+latency if available
+model artifact status
+database status
+pipeline status
+
+This should feel like infrastructure monitoring, not another KPI page.
+
+15. INTERACTION DESIGN
+
+This is where the current UI is weakest.
+
+Every important object should have a reason to interact.
+
+Implement:
+
+Hover
+
+Reveal:
+
+metadata
+exact values
+timestamps
+evidence
+Click
+
+Open:
+
+detail panel
+investigation
+entity
+attack chain
+Filters
+
+Use:
+
+severity
+time
+user
+detection type
+status
+Drill-down
+
+Example:
+
+Dashboard
+   ↓
+High-risk user
+   ↓
+Investigation
+   ↓
+Alert
+   ↓
+Attack chain
+   ↓
+Evidence
+
+The analyst should never feel trapped on a static page.
+
+16. COMMAND PALETTE
+
+If practical, add a keyboard command palette.
+
+Example:
+
+Search users...
+Search alerts...
+Open investigation...
+Go to attack chains...
+Filter critical alerts...
+
+Shortcut:
+
+Ctrl / Cmd + K
+
+This would significantly improve the feeling of a professional SOC tool.
+
+17. MICRO-INTERACTIONS
+
+Use Kowalski/animation principles carefully.
+
+Implement:
+
+panel expansion
+drawer opening
+chart transitions
+selected attack-chain node
+alert arrival
+severity state changes
+navigation transitions
+hover emphasis
+loading skeletons
+
+Animation duration should generally be short.
+
+Avoid:
+
+bouncing
+excessive scaling
+flashy neon effects
+constant movement
+animated backgrounds
+unnecessary particle effects
+
+The interface should feel alive because the data is alive, not because everything is moving.
+
+18. LIVE TELEMETRY FEEL
+
+Where the backend supports polling/live updates, make the UI feel operational.
+
+Example:
+
+LIVE ●
+
+Last update: 2.4s ago
+
+When new data arrives:
+
+subtly update the affected visualization
+highlight the changed value briefly
+update timestamp
+do not reload the whole page
+
+If true streaming does not exist, use the existing API polling architecture rather than pretending it is WebSocket data.
+
+19. DATA STATES
+
+Every component must properly handle:
+
+Loading
+
+Use meaningful skeletons.
+
+Empty
+
+Example:
+
+NO ACTIVE INVESTIGATIONS
+
+Telemetry is currently within monitored thresholds.
+Unavailable
+NETWORK ANALYTICS
+
+UNAVAILABLE
+
+SPEDIA does not provide packet-level telemetry.
+Error
+
+Show actionable error state.
+
+Partial data
+
+Clearly indicate partial availability.
+
+Never show fake zeros merely because data is missing.
+
+20. TYPOGRAPHY
+
+Use a professional technical type system.
+
+Suggested:
+
+Inter
+Geist
+IBM Plex Sans
+
+For telemetry/numbers:
+
+IBM Plex Mono
+JetBrains Mono
+
+Use monospace selectively for:
+
+scores
+timestamps
+IDs
+system status
+technical metadata
+
+Do not make the entire UI monospace.
+
+21. DENSITY
+
+The reference interface is information dense.
+
+Your current UI has too much unused space.
+
+Increase useful information density while maintaining readability.
+
+Prefer:
+
+compact panels
+small labels
+clear hierarchy
+visual relationships
+contextual details
+
+over:
+
+huge cards
+huge numbers
+empty whitespace
+
+The analyst should be able to understand the state of the system within 5 seconds.
+
+22. RESPONSIVE DESIGN
+
+The application must work at:
+
+1920×1080
+1440×900
+1366×768
+laptop screens
+tablet where practical
+
+Do not simply stack every component vertically on smaller screens.
+
+Prioritize:
+
+alerts
+investigations
+risk
+attack chains
+telemetry
+23. TECHNICAL CONSTRAINTS
+
+Do NOT rewrite the backend.
+
+Do NOT modify ML logic.
+
+Do NOT modify model calculations.
+
+Do NOT change API contracts unless absolutely necessary and explicitly documented.
+
+Reuse existing:
+
+API client
+routes
+schemas
+components where useful
+state management
+backend endpoints
+
+Add frontend dependencies only when they provide real value.
+
+Preferred libraries if compatible with the existing project:
+
+Tailwind CSS
+shadcn/ui
+Lucide icons
+Recharts / ECharts
+Framer Motion / Motion
+React Flow for attack-chain/network relationships
+
+But:
+
+FIRST inspect package.json.
+
+Do not duplicate libraries that already exist.
+
+Do not add five libraries for functionality already available.
+
+24. ICONOGRAPHY
+
+Use Lucide or the existing icon system.
+
+Icons must communicate meaning.
+
+Examples:
+
+Shield
+AlertTriangle
+Activity
+Users
+Network
+GitBranch
+Search
+Database
+Brain/model
+Clock
+Eye
+ChevronRight
+
+Do not use emojis as UI icons.
+
+25. VISUAL LANGUAGE
+
+The product should feel like:
+
+SOC
++
+Threat Intelligence
++
+Behavioral Analytics
++
+Investigation Workbench
+
+Not:
+
+Admin Dashboard
+
+The reference image demonstrates the desired visual confidence, density and operational feeling.
+
+Do not copy its branding.
+
+Do not copy Splunk branding.
+
+Do not reproduce its exact UI.
+
+Use it as inspiration for:
+
+density
+visual hierarchy
+visualization-first composition
+dark operational aesthetic
+interactive investigation feel
+26. IMPORTANT: REAL DATA ONLY
+
+Inspect every existing API.
+
+Create a mapping:
+
+Frontend Component
+        ↓
+API Endpoint
+        ↓
+Response Field
+        ↓
+Display
+
+For example:
+
+Risk Score
+→ /alerts
+→ risk_score
+→ Risk visualization
+
+If a field does not exist:
+
+UNAVAILABLE
+
+Never:
+
+const fakeRisk = 94;
+
+Never generate fake user names.
+
+Never generate fake attack chains.
+
+Never generate fake timestamps.
+
+Never fabricate network metrics.
+
+27. INVESTIGATION-FIRST DESIGN
+
+Ask this question for every screen:
+
+“What decision does the SOC analyst need to make here?”
+
+If a component does not help answer:
+
+Is something wrong?
+Who is affected?
+How serious is it?
+What happened?
+What caused it?
+Is it connected to something else?
+What should I investigate next?
+
+remove it.
+
+28. FRONTEND QUALITY BAR
+
+Before declaring completion, compare the implementation against the current screenshot and the supplied reference.
+
+The result must be visibly different from the current UI.
+
+The current:
+
+sidebar
++
+4 cards
++
+large empty area
++
+table
+
+layout is NOT acceptable as the final result.
+
+The new interface must have:
+
+meaningful visualization
+dense information hierarchy
+interactive investigation surfaces
+contextual drilldowns
+attack-chain visualization
+behavioral analytics
+system health
+real API data
+strong states
+polished transitions
+29. BROWSER VALIDATION LOOP
+
+After implementation:
+
+Step 1
+
+Run the frontend.
+
+Step 2
+
+Open it in the browser.
+
+Step 3
+
+Inspect every route:
+
+/overview
+/alerts
+/investigations
+/attack-chains
+/users
+/system-health
+
+Use the actual routes discovered in the repository if they differ.
+
+Step 4
+
+Test:
+
+navigation
+filtering
+search
+clicking alerts
+clicking users
+investigation drilldown
+attack-chain interaction
+loading
+empty states
+errors
+unavailable states
+responsive layout
+Step 5
+
+Fix visual problems.
+
+Step 6
+
+Repeat browser inspection.
+
+Do not stop at “build successful.”
+
+30. FINAL ACCEPTANCE CRITERIA
+
+The redesign is complete ONLY when all are true:
+
+Architecture
+ Existing backend untouched
+ Existing APIs correctly consumed
+ No fake data
+ No broken routes
+ No unnecessary dependency duplication
+UX
+ Feels like a SOC
+ Analyst-first information hierarchy
+ Dense but readable
+ Investigation flow is obvious
+ Important objects are interactive
+ Drilldowns work
+Visualization
+ Risk visualization
+ Alert activity
+ Attack-chain visualization
+ Behavioral profile visualization
+ System health visualization where appropriate
+Interaction
+ Hover states
+ Click states
+ Filters
+ Search
+ Detail panels
+ Investigation drilldown
+ Smooth meaningful transitions
+Data integrity
+ Real API data
+ No fabricated metrics
+ UNAVAILABLE handled honestly
+ Loading handled
+ Empty handled
+ Error handled
+Visual quality
+ No giant empty spaces
+ No generic dashboard-card layout
+ No excessive rounded cards
+ No unnecessary gradients
+ No decorative animation
+ Consistent typography
+ Consistent spacing
+ Strong semantic colors
+ Professional SOC aesthetic
+31. FINAL INSTRUCTION
+
+Do not merely modify the existing Overview page.
+
+Treat this as a frontend product redesign.
+
+First understand the existing UEBA V2.1 backend and data model.
+
+Then design the interface around the actual V2.1 workflow:
+
+Telemetry
+    ↓
+Detection
+    ↓
+Behavioral Deviation
+    ↓
+Risk
+    ↓
+Attack Stage
+    ↓
+Attack Chain
+    ↓
+Investigation Case
+    ↓
+Evidence
+    ↓
+Analyst Decision
+
+The frontend should make this pipeline visually understandable and interactively explorable.
+
+The final product should make someone looking at it think:
+
+“This is a real UEBA/SOC investigation platform.”
+
+and NOT:
+
+“This is a React dashboard generated from a template.”
+
+Do not declare success until you have opened the finished application in the browser, interacted with every major workflow, and visually refined it based on what is actually rendered.

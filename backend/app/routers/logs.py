@@ -12,7 +12,7 @@ NaN values, mixed types, and date parsing cleanly.
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app import crud, models
+from app import crud, models, schemas
 import pandas as pd
 import io
 from datetime import datetime
@@ -134,6 +134,62 @@ async def upload_user_logs(
 
     crud.bulk_insert_events(db, records)
 
+    # --- V2 Analytics Pipeline Integration ---
+    try:
+        import os, sys
+        import warnings
+        warnings.filterwarnings("ignore")
+        root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+        if root_dir not in sys.path:
+            sys.path.insert(0, root_dir)
+            
+        from analytics.pipeline.analytics_pipeline import AnalyticsPipeline
+        from analytics.data.spedia.loader import load_spedia_sessions
+        from analytics.ctmc.population_matrix import load_population_matrix
+        
+        temp_path = "temp_ingest.csv"
+        with open(temp_path, "wb") as f:
+            f.write(content)
+            
+        matrix_path = os.path.join(root_dir, "spedia_anomaly_detection", "data", "ctmc_transition_matrix.csv")
+        try:
+            pop_matrix = load_population_matrix(matrix_path) if os.path.exists(matrix_path) else {}
+        except Exception:
+            pop_matrix = {}
+            
+        pipeline = AnalyticsPipeline(population_matrix=pop_matrix)
+        sessions = load_spedia_sessions(temp_path)
+        import numpy as np
+        
+        for s in sessions:
+            u_id = s.get("user_id")
+            if u_id:
+                history = crud.load_personal_baseline(db, str(u_id))
+                pipeline.baseline_manager.user_history[str(u_id)] = [np.array(v) for v in history]
+                
+            res = pipeline.process_session(s)
+            
+            if u_id and str(u_id) in pipeline.baseline_manager.user_history:
+                new_history = pipeline.baseline_manager.user_history[str(u_id)]
+                crud.save_personal_baseline(db, str(u_id), new_history)
+                
+            if res:
+                r = schemas.AnalyticsResult(
+                    user_id=res["alert"]["user_id"],
+                    risk_score=res["alert"]["risk_score"],
+                    severity=res["alert"]["severity"],
+                    rules_triggered=str(res["model_breakdown"]["rule_violations"]),
+                    ctmc_log_prob=res["model_breakdown"]["ctmc_score"],
+                    explanation=res["explanation"]["summary"] + " | Detections: " + ", ".join(res["explanation"]["detection_methods"])
+                )
+                crud.store_analytics_result(db, r)
+                
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+    except Exception as e:
+        print(f"V2 Pipeline encountered an error during inference: {e}")
+    # -----------------------------------------
+
     return {
         "status":        "success",
         "rows_inserted": len(records),
@@ -180,6 +236,33 @@ async def upload_network_logs(
         })
 
     crud.bulk_insert_network_events(db, records)
+
+    # --- V2 Network Analytics Pipeline Integration ---
+    try:
+        import os, sys
+        root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+        if root_dir not in sys.path:
+            sys.path.insert(0, root_dir)
+            
+        from analytics.network.network_pipeline import NetworkPipeline
+        from app.schemas import AnalyticsResult
+        
+        net_pipeline = NetworkPipeline()
+        for rec in records:
+            res = net_pipeline.process_flow(rec)
+            if res and res.get("alert_found"):
+                r = AnalyticsResult(
+                    user_id=rec.get("user_id", "NETWORK_USER"),
+                    risk_score=res.get("risk_score_delta", 30.0),
+                    severity="High" if res.get("risk_score_delta", 30.0) >= 40 else "Medium",
+                    rules_triggered="NETWORK_HEURISTIC",
+                    ctmc_log_prob=0.0,
+                    explanation=f"Network Flow Alert: {res.get('reason')} | Detections: Network_Heuristics"
+                )
+                crud.store_analytics_result(db, r)
+    except Exception as e:
+        print(f"Network Pipeline encountered an error during inference: {e}")
+    # -------------------------------------------------
 
     return {
         "status":        "success",

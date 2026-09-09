@@ -1,0 +1,13 @@
+{
+  "model_sha256": "dcdd47eb7c54b1a34816c38695aad7fee6ec24c77edbf00ced36ed859676eff8",
+  "feature_schema_sha256": "57df56c70d0ea74c7f218ce8d1a77bca89998b60486d3183d4c0716cff4acc8f",
+  "training_dataset_identifier": "SPEDIA_preprocessed.csv (2025-03-06 to 2025-03-20)",
+  "training_date": "2026-09-01T16:29:50.780603Z",
+  "sklearn_version": "1.5.2",
+  "python_version": "3.11.7",
+  "hyperparameters": {
+    "n_estimators": 100,
+    "contamination": "auto",
+    "random_state": 42
+  }
+}
