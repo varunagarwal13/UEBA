@@ -62,13 +62,13 @@ class RiskScorer:
             "attack_chain": attack_chain_score
         }
         
-        active_weight_sum = sum(self.weights[k] for k, v in base_signals.items() if v is not None)
+        active_weight_sum = sum(self.weights.get(k, 0.0) for k, v in base_signals.items() if v is not None)
         
         risk_score = 0.0
         if active_weight_sum > 0:
             for k, v in base_signals.items():
                 if v is not None:
-                    normalized_weight = self.weights[k] / active_weight_sum
+                    normalized_weight = self.weights.get(k, 0.0) / active_weight_sum
                     risk_score += normalized_weight * v
                     
         risk_score = max(0.0, min(100.0, risk_score))

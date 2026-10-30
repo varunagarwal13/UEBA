@@ -10,7 +10,7 @@ The application entry point.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.database import engine, Base
-from app.routers import logs, alerts, risk, dashboard, users
+from app.routers import logs, alerts, risk, dashboard, users, investigation
 
 # Create all tables defined in models.py
 Base.metadata.create_all(bind=engine)
@@ -36,6 +36,7 @@ app.include_router(alerts.router)
 app.include_router(risk.router)
 app.include_router(dashboard.router)
 app.include_router(users.router)
+app.include_router(investigation.router)
 
 @app.get("/", tags=["Health"])
 def root():

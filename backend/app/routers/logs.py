@@ -159,31 +159,37 @@ async def upload_user_logs(
             
         pipeline = AnalyticsPipeline(population_matrix=pop_matrix)
         sessions = load_spedia_sessions(temp_path)
-        import numpy as np
-        
+
+        # Continue each user's Welford profile from earlier uploads
+        for u_id in {str(s["user_id"]) for s in sessions if s.get("user_id")}:
+            prior = crud.load_behavior_profile(db, u_id)
+            if prior:
+                pipeline.user_profiles[u_id] = prior
+
+        alert_map = {}   # pipeline alert id (ALTxxxx) -> DB alert_id
         for s in sessions:
-            u_id = s.get("user_id")
-            if u_id:
-                history = crud.load_personal_baseline(db, str(u_id))
-                pipeline.baseline_manager.user_history[str(u_id)] = [np.array(v) for v in history]
-                
             res = pipeline.process_session(s)
-            
-            if u_id and str(u_id) in pipeline.baseline_manager.user_history:
-                new_history = pipeline.baseline_manager.user_history[str(u_id)]
-                crud.save_personal_baseline(db, str(u_id), new_history)
-                
             if res:
                 r = schemas.AnalyticsResult(
                     user_id=res["alert"]["user_id"],
                     risk_score=res["alert"]["risk_score"],
                     severity=res["alert"]["severity"],
-                    rules_triggered=str(res["model_breakdown"]["rule_violations"]),
+                    rules_triggered="|".join(v["rule_name"] for v in res["model_breakdown"]["rule_violations"]),
                     ctmc_log_prob=res["model_breakdown"]["ctmc_score"],
                     explanation=res["explanation"]["summary"] + " | Detections: " + ", ".join(res["explanation"]["detection_methods"])
                 )
-                crud.store_analytics_result(db, r)
-                
+                stored = crud.store_analytics_result(db, r)
+                alert_map[res["alert"]["alert_id"]] = stored.alert_id
+
+        # Persist V2.1 state that previously lived only in pipeline memory
+        for state in pipeline.user_profiles.values():
+            crud.save_behavior_profile(db, state)
+        for chain in [*pipeline.closed_chains, *pipeline.user_chains.values()]:
+            if chain.stages_hit:
+                crud.upsert_attack_chain(db, chain)
+        for case in pipeline.open_cases:
+            crud.upsert_case(db, case, [alert_map[a] for a in case["alerts"] if a in alert_map])
+
         if os.path.exists(temp_path):
             os.remove(temp_path)
     except Exception as e:

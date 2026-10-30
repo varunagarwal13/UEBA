@@ -11,7 +11,7 @@ These are NOT database tables. They're just data shapes for the API layer.
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
 
 
@@ -79,6 +79,7 @@ class AlertOut(BaseModel):
     severity:   str
     status:     str
     rules_triggered: Optional[str]
+    ctmc_log_prob:   Optional[float] = None
     explanation:     Optional[str]
     created_at: Optional[datetime]
 
@@ -120,3 +121,52 @@ class DashboardMetrics(BaseModel):
     top_risky_users:    List[RiskProfileOut]
     alerts_by_severity: dict
     events_by_type:     dict
+
+# ── V2.1 OUT ──────────────────────────────────────────────────────────────────
+
+class ChainStageOut(BaseModel):
+    stage:      str
+    session_id: Optional[str] = None
+    timestamp:  Optional[datetime] = None
+    evidence:   Optional[str] = None
+
+class AttackChainOut(BaseModel):
+    chain_id:      str
+    user_id:       str
+    first_seen:    Optional[datetime]
+    last_seen:     Optional[datetime]
+    current_stage: Optional[str]
+    stages:        List[ChainStageOut]
+    sessions:      List[str]
+    risk_score:    float
+    confidence:    float
+    status:        str
+
+class CaseOut(BaseModel):
+    case_id:       str
+    user_id:       str
+    status:        str
+    risk_score:    float
+    severity:      str
+    current_stage: Optional[str]
+    summary:       Optional[str]
+    alert_ids:     List[int]
+    chain_id:      Optional[str] = None
+    created_at:    Optional[datetime]
+    updated_at:    Optional[datetime]
+
+class FeatureStatOut(BaseModel):
+    mean:    float
+    std:     float
+    current: float          # peak observed value — the profile keeps no per-session history
+    min:     float
+    count:   int
+
+class BehaviorProfileOut(BaseModel):
+    user_id:            str
+    profile_version:    int
+    session_count:      int
+    confidence:         float
+    state_distribution: Dict[str, float]
+    statistics:         Dict[str, FeatureStatOut]
+    hourly:             List[List[int]]

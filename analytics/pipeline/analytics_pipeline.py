@@ -28,6 +28,17 @@ from analytics.cases.case_engine import CaseEngine
 ALERT_THRESHOLD    = 0.0
 MIN_SESSION_LENGTH = 1
 
+def _session_start(session: Dict[str, Any]) -> Optional[datetime]:
+    for ev in session.get("events", []):
+        ts = ev.get("timestamp")
+        if ts:
+            try:
+                return datetime.fromisoformat(str(ts).replace("Z", "")).replace(tzinfo=None)
+            except ValueError:
+                continue
+    return None
+
+
 class AnalyticsPipeline:
 
     def __init__(self, population_matrix: Dict[str, Dict[str, float]]):
@@ -54,6 +65,7 @@ class AnalyticsPipeline:
         
         self.attack_chain_engine = AttackChainEngine(temporal_window_hours=24)
         self.user_chains: Dict[str, AttackChainState] = {}
+        self.closed_chains: List[AttackChainState] = []   # chains split off by the temporal window
         
         self.case_engine = CaseEngine(time_window_hours=24)
         self.open_cases: List[Dict] = []
@@ -127,12 +139,20 @@ class AnalyticsPipeline:
         
         # V2.1 Attack Chain Engine
         rule_names = [v.rule_name for v in violations]
+        stage_hits = StageMapper.map_session_stages(session, rule_names)
         stage = StageMapper.map_session(session, rule_names)
-        
+
+        # Temporal bounds use the session's own clock; fall back to ingest time for untimed payloads
+        session_time = _session_start(session) or datetime.utcnow()
+
         active_chain = self.user_chains.get(user_id)
-        # We need a proper timestamp for temporal bounds. Assuming chronologically ordered ingestion stream.
-        session_time = datetime.utcnow() 
-        active_chain = self.attack_chain_engine.process_event(active_chain, user_id, session_id, stage, session_time)
+        for hit in stage_hits or [{"stage": AttackStage.UNKNOWN.value, "evidence": None}]:
+            prev = active_chain
+            active_chain = self.attack_chain_engine.process_event(
+                active_chain, user_id, session_id, AttackStage(hit["stage"]), session_time, evidence=hit["evidence"]
+            )
+            if prev is not None and prev is not active_chain and prev.stages_hit:
+                self.closed_chains.append(prev)
         self.user_chains[user_id] = active_chain
         
         attack_score = active_chain.risk_score
@@ -163,7 +183,8 @@ class AnalyticsPipeline:
         # Map the solitary alert to macro-investigation cases
         case = self.case_engine.evaluate_alert(
             user_id=user_id, alert_id=alert_id,
-            alert_score=final_result.risk_score, alert_stage=stage.value, alert_time=session_time, open_cases=self.open_cases
+            alert_score=final_result.risk_score, alert_stage=stage.value, alert_time=session_time,
+            open_cases=[c for c in self.open_cases if c["user_id"] == user_id]
         )
         
         if case not in self.open_cases:
@@ -222,7 +243,7 @@ class AnalyticsPipeline:
             },
             "timeline": {
                 "user_id":        user_id,
-                "timeline":       explanation.timeline,
-                "timeline_compact": explanation.timeline_compact,
+                "timeline":       getattr(explanation, "timeline", []),
+                "timeline_compact": getattr(explanation, "timeline_compact", []),
             },
         }

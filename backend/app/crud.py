@@ -8,33 +8,111 @@ This separation makes code easier to test and change.
 """
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, case as sql_case
 from app import models, schemas
 from datetime import datetime
 from typing import List, Optional
 import pandas as pd
 import json
 
-# ── Baselines ─────────────────────────────────────────────────────────────────
-def load_personal_baseline(db: Session, user_id: str):
-    pb = db.query(models.PersonalBehaviorProfile).filter(models.PersonalBehaviorProfile.user_id == user_id).first()
-    return pb
+# ── V2.1 behavioural profiles, attack chains, cases ──────────────────────────
 
-def save_personal_baseline(db: Session, user_id: str, new_pb):
-    get_or_create_user(db, user_id)
+def load_behavior_profile(db: Session, user_id: str):
+    """Rehydrate a BehavioralProfileState so Welford stats accumulate across uploads."""
+    from analytics.profiling.behavioral_profile import BehavioralProfileState, ProfileStatistics
     pb = db.query(models.PersonalBehaviorProfile).filter(models.PersonalBehaviorProfile.user_id == user_id).first()
-    
-    if pb:
-        pb.statistics_json = new_pb.statistics_json
-        pb.state_distribution_json = new_pb.state_distribution_json
-        pb.action_distribution_json = new_pb.action_distribution_json
-        pb.session_count = new_pb.session_count
-        pb.confidence = new_pb.confidence
-        pb.profile_version += 1
-    else:
-        new_pb.user_id = user_id
-        db.add(new_pb)
+    if not pb:
+        return None
+    stats = json.loads(pb.statistics_json or "{}")
+    return BehavioralProfileState(
+        user_id             = user_id,
+        session_count       = pb.session_count or 0,
+        statistics          = {k: ProfileStatistics(**v) for k, v in stats.items()},
+        state_distribution  = json.loads(pb.state_distribution_json or "{}"),
+        action_distribution = json.loads(pb.action_distribution_json or "{}"),
+        confidence          = pb.confidence or 0.0,
+    )
+
+def save_behavior_profile(db: Session, state):
+    from dataclasses import asdict
+    get_or_create_user(db, state.user_id)
+    pb = db.query(models.PersonalBehaviorProfile).filter(models.PersonalBehaviorProfile.user_id == state.user_id).first()
+    if not pb:
+        pb = models.PersonalBehaviorProfile(user_id=state.user_id, profile_version=0)
+        db.add(pb)
+    pb.statistics_json          = json.dumps({k: asdict(v) for k, v in state.statistics.items()})
+    pb.state_distribution_json  = json.dumps(state.state_distribution)
+    pb.action_distribution_json = json.dumps(state.action_distribution)
+    pb.session_count            = state.session_count
+    pb.confidence               = state.confidence
+    pb.profile_version          = (pb.profile_version or 0) + 1
     db.commit()
+
+def get_behavior_profile(db: Session, user_id: str):
+    return db.query(models.PersonalBehaviorProfile).filter(models.PersonalBehaviorProfile.user_id == user_id).first()
+
+def get_state_distribution(db: Session, user_id: str) -> dict:
+    rows = (db.query(models.Event.ctmc_state, func.count(models.Event.event_id))
+              .filter(models.Event.user_id == user_id).group_by(models.Event.ctmc_state).all())
+    total = sum(c for _, c in rows) or 1
+    return {state: c / total for state, c in rows if state}
+
+def get_hourly_activity(db: Session, user_id: str) -> list:
+    """7×24 grid (Mon..Sun × hour) of event counts."""
+    grid = [[0] * 24 for _ in range(7)]
+    rows = (db.query(models.Event.day_of_week, models.Event.hour, func.count(models.Event.event_id))
+              .filter(models.Event.user_id == user_id,
+                      models.Event.day_of_week.isnot(None), models.Event.hour.isnot(None))
+              .group_by(models.Event.day_of_week, models.Event.hour).all())
+    for d, h, c in rows:
+        grid[int(d)][int(h)] = c
+    return grid
+
+def upsert_attack_chain(db: Session, chain):
+    get_or_create_user(db, chain.user_id)
+    row = db.query(models.AttackChain).filter(models.AttackChain.chain_id == chain.chain_id).first()
+    if not row:
+        row = models.AttackChain(chain_id=chain.chain_id, user_id=chain.user_id)
+        db.add(row)
+    row.first_seen    = chain.first_seen
+    row.last_seen     = chain.last_seen
+    row.current_stage = chain.current_stage
+    row.stages_json   = json.dumps(getattr(chain, "stage_evidence", None) or chain.stages_hit)
+    row.sessions_json = json.dumps(chain.related_sessions[-200:])
+    row.risk_score    = chain.risk_score
+    row.confidence    = chain.confidence
+    row.status        = chain.status
+    db.commit()
+
+def get_attack_chains(db: Session, status: str = None, limit: int = 100) -> List[models.AttackChain]:
+    q = db.query(models.AttackChain)
+    if status:
+        q = q.filter(models.AttackChain.status == status)
+    return q.order_by(desc(models.AttackChain.risk_score)).limit(limit).all()
+
+def upsert_case(db: Session, case: dict, alert_ids: List[int]):
+    get_or_create_user(db, case["user_id"])
+    row = db.query(models.InvestigationCase).filter(models.InvestigationCase.case_id == case["case_id"]).first()
+    if not row:
+        row = models.InvestigationCase(case_id=case["case_id"], user_id=case["user_id"], created_at=case["created_at"])
+        db.add(row)
+    row.status        = case["status"]
+    row.risk_score    = case["risk_score"]
+    row.severity      = case["severity"]
+    row.current_stage = case["current_stage"]
+    row.summary       = case["summary"]
+    row.updated_at    = case["updated_at"]
+    linked = {ca.alert_id for ca in row.alerts}
+    for aid in alert_ids:
+        if str(aid) not in linked:
+            db.add(models.CaseAlert(case_id=case["case_id"], alert_id=str(aid)))
+    db.commit()
+
+def get_cases(db: Session, status: str = None, limit: int = 100) -> List[models.InvestigationCase]:
+    q = db.query(models.InvestigationCase)
+    if status:
+        q = q.filter(models.InvestigationCase.status == status)
+    return q.order_by(desc(models.InvestigationCase.updated_at)).limit(limit).all()
 
 
 # ── Users ─────────────────────────────────────────────────────────────────────
@@ -67,6 +145,25 @@ def bulk_insert_events(db: Session, records: list):
     Much faster than inserting one-by-one for large CSVs.
     """
     db.bulk_insert_mappings(models.Event, records)
+    db.commit()
+    refresh_event_counts(db, {r["user_id"] for r in records if r.get("user_id")})
+
+def refresh_event_counts(db: Session, user_ids):
+    """Recount total / anomalous events per user into RiskProfile (shown on the watchlist)."""
+    if not user_ids:
+        return
+    rows = (db.query(models.Event.user_id,
+                     func.count(models.Event.event_id),
+                     func.sum(sql_case((models.Event.is_anomaly == True, 1), else_=0)))
+              .filter(models.Event.user_id.in_(list(user_ids)))
+              .group_by(models.Event.user_id).all())
+    for user_id, total, anomalous in rows:
+        profile = db.query(models.RiskProfile).filter(models.RiskProfile.user_id == user_id).first()
+        if not profile:
+            profile = models.RiskProfile(user_id=user_id)
+            db.add(profile)
+        profile.total_events   = int(total or 0)
+        profile.anomaly_events = int(anomalous or 0)
     db.commit()
 
 def get_events_for_user(db: Session, user_id: str, limit: int = 200) -> List[models.Event]:
