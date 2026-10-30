@@ -1,57 +1,79 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import { useMemo } from 'react';
+import { ReactFlow, Background, Controls, Handle, Position, MarkerType } from '@xyflow/react';
+import { STAGES } from '../data/demo';
+import { SEV_HEX, sevOf, stamp, n, stageLabel } from '../lib/format';
 
-export default function AttackChainGraph({ stage }) {
-    const defaultStages = ['RECONNAISSANCE', 'AUTHENTICATION', 'DISCOVERY', 'STAGING', 'EXFILTRATION'];
+const COLS = 4;
+const GAP_X = 260;
+const GAP_Y = 160;
 
-    // Normalize stage string
-    const activeStage = stage ? stage.toUpperCase() : 'UNKNOWN';
-    let matchIdx = defaultStages.indexOf(activeStage);
+function StageNode({ data }) {
+  const { stage, hit, current, idx, chainColor } = data;
+  const color = hit ? (hit.score != null ? SEV_HEX[sevOf(hit.score)] : chainColor) : 'var(--ink-4)';
+  return (
+    <div style={{
+      width: 220, padding: '12px 14px', borderRadius: 0,
+      background: hit ? 'var(--ink-2)' : 'var(--ink-2)',
+      border: `1px solid ${hit ? color : 'var(--line)'}`,
+      boxShadow: current ? `5px 5px 0 ${color}` : 'none', borderWidth: current ? 2 : 1,
+      opacity: hit ? 1 : 0.45,
+    }}>
+      <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span className="mono" style={{ fontSize: 'var(--fs-xs)', color: hit ? color : 'var(--tx-3)' }}>{String(idx + 1).padStart(2, '0')}</span>
+        <span style={{ fontSize: 'var(--fs-base)', fontWeight: 600, color: hit ? 'var(--tx-0)' : 'var(--tx-2)' }}>{stageLabel(stage)}</span>
+        {current && <span className="pulse" style={{ color, marginLeft: 'auto' }} />}
+      </div>
+      {hit ? (
+        <>
+          {hit.evidence && <div style={{ fontSize: 'var(--fs-md)', color: 'var(--tx-1)', marginTop: 6 }}>{hit.evidence}</div>}
+          <div className="mono" style={{ fontSize: 'var(--fs-xs)', color: 'var(--tx-3)', marginTop: 6, display: 'flex', justifyContent: 'space-between' }}>
+            <span>{hit.session_id || 'observed'}</span>{hit.score != null && <span style={{ color }}>{n(hit.score, 0)}</span>}
+          </div>
+          {hit.timestamp && <div className="mono" style={{ fontSize: 'var(--fs-xs)', color: 'var(--tx-3)', marginTop: 2 }}>{stamp(hit.timestamp)}</div>}
+        </>
+      ) : <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--tx-3)', marginTop: 6 }}>Not observed</div>}
+      <Handle type="source" position={Position.Right} style={{ opacity: 0 }} />
+    </div>
+  );
+}
 
-    // If not in generic flow, append it for visual context mapping
-    let renderStages = [...defaultStages];
-    if (activeStage !== 'UNKNOWN' && matchIdx === -1) {
-        renderStages.push(activeStage);
-        matchIdx = renderStages.length - 1;
-    }
+const nodeTypes = { stage: StageNode };
 
-    if (activeStage === 'UNKNOWN' || activeStage === 'ANOMALY') {
-        return (
-            <div style={{ color: 'var(--text-tertiary)', fontSize: '13px' }}>
-                <span className="mono" style={{ letterSpacing: '0.5px' }}>ISOLATED_ANOMALY</span>
-                <p style={{ marginTop: '4px', lineHeight: 1.5 }}>No longitudinal attack sequence mapped. Event evaluates independently of external phase matrices.</p>
-            </div>
-        );
-    }
+export default function AttackChainGraph({ chain }) {
+  const chainColor = SEV_HEX[sevOf(chain?.risk_score ?? 0)];
+  const { nodes, edges } = useMemo(() => {
+    const hits = Object.fromEntries((chain?.stages || []).map((s) => [s.stage, s]));
+    const lastIdx = STAGES.indexOf(chain?.current_stage);
+    const nodes = STAGES.map((stage, idx) => {
+      const row = Math.floor(idx / COLS);
+      // snake layout: second row runs right-to-left so the chain reads continuously
+      const col = row % 2 === 0 ? idx % COLS : COLS - 1 - (idx % COLS);
+      return {
+        id: stage, type: 'stage', draggable: true,
+        position: { x: col * GAP_X, y: row * GAP_Y },
+        data: { stage, idx, hit: hits[stage], current: idx === lastIdx, chainColor },
+      };
+    });
+    const edges = STAGES.slice(1).map((stage, i) => {
+      const prev = STAGES[i];
+      const lit = hits[prev] && hits[stage];
+      const color = lit ? (hits[stage].score != null ? SEV_HEX[sevOf(hits[stage].score)] : chainColor) : 'var(--ink-4)';
+      return {
+        id: `${prev}-${stage}`, source: prev, target: stage, type: 'smoothstep',
+        animated: !!lit,
+        style: { stroke: color, strokeWidth: lit ? 2 : 1, strokeDasharray: lit ? undefined : '4 4' },
+        markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
+      };
+    });
+    return { nodes, edges };
+  }, [chain, chainColor]);
 
-    return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {renderStages.map((s, idx) => {
-                const isActive = matchIdx >= idx;
-                const isCurrent = matchIdx === idx;
-
-                return (
-                    <div key={s} style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '20px' }}>
-                            <div style={{
-                                width: '12px', height: '12px', borderRadius: '50%',
-                                backgroundColor: isCurrent ? 'var(--risk-critical)' : isActive ? 'var(--risk-high)' : 'var(--border-subtle)',
-                                boxShadow: isCurrent ? '0 0 8px var(--risk-critical)' : 'none'
-                            }} />
-                            {idx < renderStages.length - 1 && (
-                                <div style={{ width: '2px', height: '24px', backgroundColor: isActive ? 'var(--risk-high)' : 'var(--border-subtle)', marginTop: '4px', marginBottom: '4px' }} />
-                            )}
-                        </div>
-                        <span className="mono" style={{
-                            fontSize: '12px',
-                            color: isActive ? 'var(--text-primary)' : 'var(--text-tertiary)',
-                            fontWeight: isActive ? 600 : 400
-                        }}>
-                            {s}
-                        </span>
-                    </div>
-                );
-            })}
-        </div>
-    );
+  return (
+    <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView fitViewOptions={{ padding: 0.08 }}
+      proOptions={{ hideAttribution: true }} nodesConnectable={false} minZoom={0.4} maxZoom={1.6}>
+      <Background color="rgba(128,128,128,0.35)" gap={20} size={1} />
+      <Controls showInteractive={false} position="bottom-right" />
+    </ReactFlow>
+  );
 }

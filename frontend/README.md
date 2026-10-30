@@ -1,16 +1,34 @@
-# React + Vite
+# Sentinel — UEBA V2.1 SOC console
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React 19 + Vite analyst workstation for the UEBA backend.
 
-Currently, two official plugins are available:
+```bash
+npm install
+npm run dev            # http://localhost:5173
+```
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Set `VITE_API_BASE` to point at the backend (default `http://localhost:8000`).
 
-## React Compiler
+## Data modes
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Every request reports where its data came from, shown in the top-bar pill:
 
-## Expanding the Oxlint configuration
+| Source        | When                                             | UI                         |
+|---------------|--------------------------------------------------|----------------------------|
+| `live`        | backend answered                                 | `LIVE · API`               |
+| `demo`        | backend unreachable                              | `DEMO DATASET` (sample data from `src/data/demo.js`) |
+| `not_exposed` | backend is up but the route doesn't exist        | "Route not exposed" panel naming the missing endpoint |
+| `empty`       | route exists but has no record for that id       | "No profile" notice        |
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+Attack chains, investigation cases and behaviour profiles are served by
+`backend/app/routers/investigation.py` (`GET /attack-chains`, `GET /cases`,
+`GET /profiles/{user_id}`) and written on each `POST /logs/user` upload.
+Chains are only stored once `StageMapper` assigns a stage other than UNKNOWN.
+
+## Stack
+
+- `@xyflow/react` — kill-chain graph
+- `recharts` — activity, event mix, CTMC state radar
+- `cmdk` — Ctrl/⌘ K command palette
+- `framer-motion`, `sonner`, `lucide-react`
+- Type: Chakra Petch (display), Schibsted Grotesk (UI), Martian Mono (data)

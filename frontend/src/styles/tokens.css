@@ -1,0 +1,101 @@
+/*
+ * Direction: Swiss / brutalist operations ledger.
+ * Paper ground, ink rules, square corners, no soft shadows. Colour is reserved
+ * for severity blocks and a single signal blue. Neutrals are tinted from --hue.
+ */
+:root,
+:root[data-theme='light'] {
+  --hue: 85;           /* warm paper */
+  --ink-hue: 265;      /* blue-black ink */
+
+  --ink-0: oklch(0.968 0.010 var(--hue));    /* page */
+  --ink-1: oklch(0.935 0.012 var(--hue));    /* inset / table header */
+  --ink-2: oklch(0.985 0.006 var(--hue));    /* panel surface */
+  --ink-3: oklch(0.92 0.014 var(--hue));     /* hover */
+  --ink-4: oklch(0.86 0.014 var(--hue));     /* tracks */
+  --rule: oklch(0.20 0.015 var(--ink-hue));  /* structural rules */
+  --line: oklch(0.85 0.012 var(--hue));      /* hairlines between rows */
+  --line-strong: var(--rule);
+
+  --tx-0: oklch(0.18 0.015 var(--ink-hue));
+  --tx-1: oklch(0.30 0.015 var(--ink-hue));
+  --tx-2: oklch(0.45 0.015 var(--ink-hue));
+  --tx-3: oklch(0.55 0.012 var(--ink-hue));
+
+  --accent: oklch(0.50 0.25 266);            /* signal blue */
+  --accent-strong: oklch(0.45 0.25 266);
+  --accent-soft: oklch(0.50 0.25 266 / 0.10);
+  --on-accent: #fff;
+
+  --violet: oklch(0.50 0.20 300);
+  --violet-soft: oklch(0.50 0.20 300 / 0.10);
+  --cyan: oklch(0.52 0.12 220);
+  --cyan-soft: oklch(0.52 0.12 220 / 0.10);
+
+  --hard-shadow: 6px 6px 0 var(--rule);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --ink-0: oklch(0.165 0.006 var(--ink-hue));
+  --ink-1: oklch(0.205 0.008 var(--ink-hue));
+  --ink-2: oklch(0.185 0.007 var(--ink-hue));
+  --ink-3: oklch(0.25 0.01 var(--ink-hue));
+  --ink-4: oklch(0.32 0.01 var(--ink-hue));
+  --rule: oklch(0.62 0.01 var(--hue));
+  --line: oklch(0.30 0.01 var(--ink-hue));
+  --line-strong: var(--rule);
+
+  --tx-0: oklch(0.96 0.008 var(--hue));
+  --tx-1: oklch(0.86 0.008 var(--hue));
+  --tx-2: oklch(0.72 0.008 var(--hue));
+  --tx-3: oklch(0.62 0.008 var(--hue));
+
+  --accent: oklch(0.66 0.20 266);
+  --accent-strong: oklch(0.74 0.17 266);
+  --accent-soft: oklch(0.66 0.20 266 / 0.16);
+  --on-accent: oklch(0.14 0.01 var(--ink-hue));
+
+  --violet: oklch(0.74 0.14 300);
+  --violet-soft: oklch(0.74 0.14 300 / 0.16);
+  --cyan: oklch(0.80 0.11 215);
+  --cyan-soft: oklch(0.80 0.11 215 / 0.15);
+
+  --hard-shadow: 6px 6px 0 oklch(0 0 0 / 0.6);
+  color-scheme: dark;
+}
+
+:root {
+  /* severity: solid blocks, readable in both themes */
+  --sev-critical: #e5283c;
+  --sev-high: #ff7a00;
+  --sev-medium: #f5c400;
+  --sev-low: #12a874;
+  --on-sev-critical: #fff;
+  --on-sev: #111;
+
+  /* aliases still referenced by pages */
+  --acid: var(--accent);
+  --acid-dim: var(--accent-soft);
+  --violet-dim: var(--violet-soft);
+  --cyan-dim: var(--cyan-soft);
+
+  --font-ui: 'Archivo Variable', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Fragment Mono', ui-monospace, monospace;
+  --font-display: 'Archivo Variable', 'Helvetica Neue', Arial, sans-serif;
+
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-base: 15px;
+  --fs-lg: 18px;
+  --fs-xl: 26px;
+  --fs-2xl: 36px;
+  --fs-3xl: 52px;
+
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+
+  --r-sm: 0;
+  --r-md: 0;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+}

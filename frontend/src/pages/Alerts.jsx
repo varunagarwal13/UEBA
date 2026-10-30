@@ -1,89 +1,95 @@
-import React, { useState, useEffect } from 'react';
-import { fetchAlerts } from '../api/client';
-import AlertTable from '../components/AlertTable';
+import { useMemo, useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { Search, Inbox } from 'lucide-react';
+import { api, useResource } from '../api/client';
+import { Panel, Sev, Entity, RiskBar, SkeletonRows } from '../components/ui';
 import AlertDetail from '../components/AlertDetail';
-import CapabilityState from '../components/CapabilityState';
+import { SEV_ORDER, ago, prettyRule, splitRules, stamp } from '../lib/format';
 
-export default function Alerts() {
-    const [alerts, setAlerts] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(false);
-    const [selectedAlert, setSelectedAlert] = useState(null);
-    const [search, setSearch] = useState("");
-    const [filterSev, setFilterSev] = useState("ALL");
+const NONE = [];
 
-    useEffect(() => {
-        let isMounted = true;
-        const load = async () => {
-            const data = await fetchAlerts();
-            if (isMounted) {
-                if (data.error === 'UNAVAILABLE') setError(true);
-                else setAlerts(data);
-                setLoading(false);
-            }
-        };
-        load();
-        const t = setInterval(load, 5000);
-        return () => { isMounted = false; clearInterval(t); };
-    }, []);
+export default function Alerts({ param, go }) {
+  const res = useResource(api.alerts, [], { poll: 8000 });
+  const [q, setQ] = useState('');
+  const [sev, setSev] = useState('ALL');
+  const [status, setStatus] = useState('open');
 
-    if (loading) return <div style={{ color: 'var(--text-tertiary)', padding: '24px' }}>INITIALIZING ACTIVE INVESTIGATIONS...</div>;
+  const alerts = Array.isArray(res.data) ? res.data : NONE;
+  const selected = alerts.find((a) => String(a.alert_id) === String(param));
 
-    if (error) {
-        return <CapabilityState status="OFFLINE" componentName="DETECTION PIPELINE" reason="The backend /alerts endpoint failed to respond." />;
+  const rows = useMemo(() => [...alerts].sort((x, y) => y.risk_score - x.risk_score || y.alert_id - x.alert_id).filter((a) => {
+    if (sev !== 'ALL' && a.severity !== sev) return false;
+    if (status !== 'all' && a.status !== status) return false;
+    if (q) {
+      const s = q.toLowerCase();
+      return a.user_id?.toLowerCase().includes(s) || a.rules_triggered?.toLowerCase().includes(s) || String(a.alert_id).includes(s);
     }
+    return true;
+  }), [alerts, q, sev, status]);
 
-    const filtered = alerts.filter(a => {
-        if (filterSev !== "ALL" && a.severity !== filterSev) return false;
-        if (search && !a.user_id?.toLowerCase().includes(search.toLowerCase()) &&
-            !a.rules_triggered?.toLowerCase().includes(search.toLowerCase())) return false;
-        return true;
-    });
+  const counts = useMemo(() => Object.fromEntries(SEV_ORDER.map((s) => [s, alerts.filter((a) => a.severity === s && (status === 'all' || a.status === status)).length])), [alerts, status]);
 
-    return (
-        <div style={{ display: 'flex', gap: '24px', height: '100%', overflow: 'hidden', animation: 'fadeIn 300ms ease' }}>
-
-            {/* ALERT QUEUE */}
-            <div style={{ flex: selectedAlert ? '1' : '1.5', display: 'flex', flexDirection: 'column', transition: 'flex 250ms ease-out', minWidth: '400px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', gap: '16px' }}>
-                    <input
-                        type="text"
-                        placeholder="Search entities or rules (Ctrl+K)..."
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        style={{ padding: '8px 12px', background: 'var(--bg-panel)', border: '1px solid var(--border-focus)', color: 'var(--text-primary)', outline: 'none', borderRadius: 'var(--radius-sm)', flex: 1, fontFamily: 'var(--font-ui)', fontSize: '13px' }}
-                    />
-                    <select
-                        value={filterSev}
-                        onChange={e => setFilterSev(e.target.value)}
-                        style={{ padding: '8px 12px', background: 'var(--bg-panel)', border: '1px solid var(--border-focus)', color: 'var(--text-primary)', outline: 'none', borderRadius: 'var(--radius-sm)' }}
-                    >
-                        <option value="ALL">Severity: ALL</option>
-                        <option value="Critical">Critical</option>
-                        <option value="High">High</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Low">Low</option>
-                    </select>
-                </div>
-
-                <div className="panel" style={{ flex: 1, overflowY: 'auto', padding: 0 }}>
-                    <div style={{ padding: '16px', borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-panel)' }}>
-                        <div className="panel-title" style={{ margin: 0 }}>Active Alert Queue ({filtered.length})</div>
-                    </div>
-                    {filtered.length === 0 ? (
-                        <div style={{ padding: '32px', textAlign: 'center', color: 'var(--text-tertiary)' }}>No alerts match current criteria.</div>
-                    ) : (
-                        <AlertTable alerts={filtered} onSelect={setSelectedAlert} activeId={selectedAlert?.alert_id} />
-                    )}
-                </div>
-            </div>
-
-            {/* INVESTIGATION DRAWER */}
-            {selectedAlert && (
-                <div className="animate-slide-in" style={{ flex: 1, minWidth: '350px', maxWidth: '600px', display: 'flex', flexDirection: 'column' }}>
-                    <AlertDetail alert={selectedAlert} onClose={() => setSelectedAlert(null)} />
-                </div>
-            )}
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: selected ? 'minmax(0, 1fr) minmax(380px, 520px)' : '1fr', gap: 14, height: '100%' }}>
+      <Panel bodyClass="flush" style={{ minHeight: 0 }}
+        title="Alert queue" sub={`${rows.length} shown`}
+        right={
+          <div className="seg">
+            {['open', 'reviewed', 'closed', 'all'].map((s) => (
+              <button key={s} className={status === s ? 'on' : ''} onClick={() => setStatus(s)}>{s}</button>
+            ))}
+          </div>
+        }>
+        <div style={{ display: 'flex', gap: 10, padding: 12, borderBottom: '1px solid var(--line)', flexWrap: 'wrap' }}>
+          <label className="field" style={{ flex: '1 1 240px' }}>
+            <Search size={14} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter by entity, rule or alert id" />
+          </label>
+          <div className="seg">
+            <button className={sev === 'ALL' ? 'on' : ''} onClick={() => setSev('ALL')}>All</button>
+            {SEV_ORDER.map((s) => (
+              <button key={s} className={sev === s ? 'on' : ''} onClick={() => setSev(s)}>
+                {s} <span className="faint">{counts[s]}</span>
+              </button>
+            ))}
+          </div>
         </div>
-    );
+        <div style={{ overflow: 'auto', flex: 1, minHeight: 0, maxHeight: 'calc(100vh - 210px)' }}>
+          {res.loading && !res.data ? <SkeletonRows rows={12} /> : rows.length === 0 ? (
+            <div className="notice"><Inbox size={18} /><span className="muted">Queue is clear for this filter.</span></div>
+          ) : (
+            <table className="tbl">
+              <thead>
+                <tr><th style={{ width: 70 }}>ID</th><th>Entity</th><th>Severity</th><th>Risk</th><th>Primary signal</th><th>Status</th><th className="num">Raised</th></tr>
+              </thead>
+              <tbody>
+                {rows.map((a) => {
+                  const r = splitRules(a.rules_triggered);
+                  return (
+                    <tr key={a.alert_id} className={selected?.alert_id === a.alert_id ? 'sel' : ''}
+                      onClick={() => go('alerts', selected?.alert_id === a.alert_id ? undefined : a.alert_id)}>
+                      <td className="mono faint">#{a.alert_id}</td>
+                      <td><Entity id={a.user_id} /></td>
+                      <td><Sev level={a.severity} /></td>
+                      <td><RiskBar value={a.risk_score} width={48} /></td>
+                      <td style={{ maxWidth: 240 }}>
+                        <span style={{ fontSize: 'var(--fs-md)', color: 'var(--tx-1)' }}>{r[0] ? prettyRule(r[0]) : 'Behavioural anomaly'}</span>
+                        {r.length > 1 && <span className="tag" style={{ marginLeft: 6, padding: '0 5px' }}>+{r.length - 1}</span>}
+                      </td>
+                      <td><span style={{ fontSize: 'var(--fs-sm)', textTransform: 'capitalize', color: a.status === 'open' ? 'var(--accent-strong)' : 'var(--tx-3)' }}>{a.status}</span></td>
+                      <td className="num mono faint" title={stamp(a.created_at)}>{ago(a.created_at)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </Panel>
+
+      <AnimatePresence mode="wait">
+        {selected && <AlertDetail key={selected.alert_id} alert={selected} go={go} onChanged={res.reload} />}
+      </AnimatePresence>
+    </div>
+  );
 }
